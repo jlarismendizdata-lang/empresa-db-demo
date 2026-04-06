@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Empresa DB — Diseño a Implementación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+<style>
+/* ── DESIGN TOKENS ─────────────────────────────────────────── */
+:root {
+  --ink:        #0a0908;
+  --ink-2:      #4a4744;
+  --ink-3:      #9a9692;
+  --paper:      #faf9f7;
+  --surface:    #ffffff;
+  --rule:       #e8e5e0;
+  --rule-soft:  #f0ede8;
+
+  --teal:       #0d7377;
+  --teal-light: #e6f4f4;
+  --teal-glow:  rgba(13,115,119,.12);
+  --amber:      #b45309;
+  --amber-light:#fef3c7;
+  --rose:       #be123c;
+  --rose-light: #fff1f2;
+  --slate:      #334155;
+
+  --code-bg:    #0d1117;
+  --code-fg:    #cdd9e5;
+
+  --r:          12px;
+  --r-lg:       20px;
+  --r-xl:       28px;
+  --ease:       cubic-bezier(.4,0,.2,1);
+  --t:          .22s;
+
+  --sh-sm: 0 1px 3px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.04);
+  --sh-md: 0 4px 16px rgba(0,0,0,.07), 0 1px 4px rgba(0,0,0,.04);
+  --sh-lg: 0 12px 40px rgba(0,0,0,.09), 0 4px 12px rgba(0,0,0,.04);
+}
+
+/* ── RESET ─────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Geist',sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  line-height:1.6;
+}
+
+/* ── TOPBAR ────────────────────────────────────────────────── */
+header{
+  position:sticky;top:0;z-index:200;
+  height:58px;
+  background:rgba(250,249,247,.92);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--rule);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px;
+}
+.brand{
+  display:flex;align-items:center;gap:10px;
+  font-family:'Instrument Serif',serif;
+  font-size:1.1rem;letter-spacing:-.01em;
+  color:var(--ink);
+}
+.brand-icon{
+  width:28px;height:28px;border-radius:7px;
+  background:var(--teal);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:.75rem;font-family:'Geist Mono',monospace;font-weight:500;
+}
+.nav-pills{display:flex;gap:2px;background:var(--rule-soft);padding:3px;border-radius:100px;border:1px solid var(--rule);}
+.pill{
+  font-size:.78rem;font-weight:500;letter-spacing:.01em;
+  padding:5px 16px;border-radius:100px;border:none;
+  background:transparent;color:var(--ink-2);
+  cursor:pointer;transition:all var(--t) var(--ease);
+  font-family:'Geist',sans-serif;
+}
+.pill:hover{color:var(--ink);}
+.pill.active{background:var(--surface);color:var(--teal);box-shadow:var(--sh-sm);font-weight:600;}
+.header-tag{
+  font-family:'Geist Mono',monospace;font-size:.7rem;
+  color:var(--ink-3);border:1px solid var(--rule);
+  border-radius:100px;padding:3px 11px;
+}
+
+/* ── SECTION SYSTEM ────────────────────────────────────────── */
+.view{display:none;}
+.view.active{display:block;animation:appear .3s var(--ease) both;}
+@keyframes appear{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── PAGE HERO ─────────────────────────────────────────────── */
+.hero{
+  max-width:900px;margin:0 auto;
+  padding:64px 40px 36px;
+}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:'Geist Mono',monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--teal);background:var(--teal-light);
+  border:1px solid rgba(13,115,119,.2);border-radius:100px;
+  padding:4px 12px;margin-bottom:18px;
+}
+.eyebrow::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--teal);}
+.hero h1{
+  font-family:'Instrument Serif',serif;
+  font-size:clamp(2.2rem,4.5vw,3.4rem);
+  line-height:1.08;letter-spacing:-.03em;
+  margin-bottom:14px;
+}
+.hero h1 em{font-style:italic;color:var(--teal);}
+.hero p{font-size:.93rem;color:var(--ink-2);max-width:500px;line-height:1.7;}
+
+/* ── CONTENT WRAPPER ───────────────────────────────────────── */
+.wrap{max-width:900px;margin:0 auto;padding:0 40px 100px;}
+
+/* ══════════════════════════════════════════════════════════ */
+/*  DIAGRAM VIEW                                             */
+/* ══════════════════════════════════════════════════════════ */
+.diagram-frame{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-radius:var(--r-xl);
+  box-shadow:var(--sh-lg);
+  overflow:hidden;
+}
+.diagram-topbar{
+  padding:14px 24px;
+  border-bottom:1px solid var(--rule);
+  background:var(--rule-soft);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.traffic{display:flex;gap:6px;}
+.dot{width:11px;height:11px;border-radius:50%;}
+.dr{background:#ff5f57;}.dy{background:#febc2e;}.dg{background:#28c840;}
+.diagram-label{font-family:'Geist Mono',monospace;font-size:.72rem;color:var(--ink-3);}
+.diagram-body{
+  padding:48px 40px;
+  display:flex;flex-direction:column;align-items:center;gap:32px;
+  min-height:460px;
+}
+.svg-container{
+  width:100%;max-width:720px;
+  border:1px solid var(--rule);border-radius:var(--r-lg);
+  background:var(--rule-soft);overflow:hidden;
+  cursor:zoom-in;transition:transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+.svg-container:hover{transform:scale(1.015);box-shadow:var(--sh-lg);}
+.svg-container img,.svg-container object{width:100%;display:block;min-height:300px;}
+
+/* Inline ER SVG (shown when no file) */
+.er-svg{width:100%;display:block;}
+
+.diagram-caption{text-align:center;}
+.diagram-caption h3{
+  font-family:'Instrument Serif',serif;font-size:1.15rem;letter-spacing:-.01em;
+  margin-bottom:6px;
+}
+.diagram-caption p{font-size:.84rem;color:var(--ink-2);line-height:1.65;}
+
+.schema-legend{
+  display:flex;gap:20px;flex-wrap:wrap;justify-content:center;
+  padding:4px 0;
+}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:.74rem;color:var(--ink-2);}
+.legend-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0;}
+
+/* ══════════════════════════════════════════════════════════ */
+/*  SQL VIEW                                                 */
+/* ══════════════════════════════════════════════════════════ */
+.editor-shell{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-radius:var(--r-xl);
+  box-shadow:var(--sh-lg);
+  overflow:hidden;
+}
+.editor-bar{
+  background:var(--code-bg);
+  padding:13px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid #1e2430;
+}
+.editor-bar-left{display:flex;align-items:center;gap:10px;}
+.editor-filename{font-family:'Geist Mono',monospace;font-size:.72rem;color:#6b7683;}
+.editor-actions{display:flex;gap:8px;}
+
+.btn{
+  font-family:'Geist',sans-serif;font-size:.78rem;font-weight:500;
+  padding:6px 14px;border-radius:100px;border:1px solid transparent;
+  cursor:pointer;transition:all var(--t) var(--ease);
+  display:inline-flex;align-items:center;gap:5px;
+  letter-spacing:.01em;
+}
+.btn-outline{background:transparent;color:#6b7683;border-color:#2d3340;}
+.btn-outline:hover{color:#fff;border-color:#4a5568;}
+.btn-teal{background:var(--teal);color:#fff;border-color:var(--teal);}
+.btn-teal:hover{background:#0a5f63;box-shadow:0 3px 12px rgba(13,115,119,.35);}
+
+.code-scroll{overflow-x:auto;}
+.code-body{
+  background:var(--code-bg);
+  font-family:'Geist Mono',monospace;font-size:.78rem;line-height:1.85;
+  padding:28px 32px;color:var(--code-fg);
+  white-space:pre;
+}
+/* SQL tokens */
+.kw {color:#79c0ff;font-weight:500;}
+.ty {color:#7ee787;}
+.cm {color:#484f58;font-style:italic;}
+.tb {color:#ffa657;}
+.co {color:#d2a8ff;}
+.nu {color:#79c0ff;}
+.op {color:#ff7b72;}
+.st {color:#a5d6ff;}
+
+.exec-bar{height:2px;background:transparent;transition:all .3s;}
+.exec-bar.running{background:linear-gradient(90deg,var(--teal),#14b8a6);animation:prog .7s ease both;}
+@keyframes prog{from{transform:scaleX(0);transform-origin:left;}to{transform:scaleX(1);}}
+
+.result-area{
+  border-top:1px solid var(--rule);
+  padding:20px 28px;
+  display:flex;align-items:flex-start;gap:14px;
+  min-height:64px;
+}
+.result-status{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;margin-top:1px;
+}
+.status-idle{background:#f0fdf4;color:var(--teal);}
+.status-run {background:var(--teal-light);color:var(--teal);}
+.status-ok  {background:#f0fdf4;color:#059669;}
+.result-msg{font-size:.83rem;color:var(--ink-2);line-height:1.6;}
+.result-msg strong{color:var(--ink);font-weight:600;}
+
+.result-table{width:100%;border-collapse:collapse;font-family:'Geist Mono',monospace;font-size:.75rem;margin-top:16px;}
+.result-table th{padding:9px 14px;text-align:left;background:var(--rule-soft);color:var(--ink-2);font-weight:500;border-bottom:1px solid var(--rule);}
+.result-table td{padding:8px 14px;border-bottom:1px solid var(--rule-soft);color:var(--ink);}
+.result-table tr:last-child td{border-bottom:none;}
+.result-table tr:hover td{background:var(--teal-light);}
+#result-table-wrap{display:none;padding:0 0 12px;}
+
+/* ══════════════════════════════════════════════════════════ */
+/*  DEMO VIEW                                                */
+/* ══════════════════════════════════════════════════════════ */
+.demo-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+@media(max-width:660px){.demo-layout{grid-template-columns:1fr;}}
+
+.panel{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:var(--r-lg);box-shadow:var(--sh-sm);
+  overflow:hidden;
+}
+.panel-head{
+  padding:14px 20px;border-bottom:1px solid var(--rule);
+  background:var(--rule-soft);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.panel-title{font-size:.8rem;font-weight:600;letter-spacing:.02em;color:var(--ink);}
+.panel-subtitle{font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--ink-3);}
+.panel-body{padding:16px;}
+
+/* product cards */
+.product-list{display:flex;flex-direction:column;gap:10px;}
+.product-row{
+  border:1px solid var(--rule);border-radius:var(--r);
+  padding:12px 14px;
+  display:flex;align-items:center;gap:12px;
+  cursor:pointer;transition:all var(--t) var(--ease);
+  position:relative;
+}
+.product-row:hover{border-color:var(--teal);background:var(--teal-light);}
+.product-row.selected{border-color:var(--teal);background:var(--teal-light);box-shadow:0 0 0 2px var(--teal-glow);}
+.p-emoji{font-size:1.4rem;width:36px;text-align:center;flex-shrink:0;}
+.p-info{flex:1;min-width:0;}
+.p-name{font-size:.82rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.p-meta{font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--ink-3);margin-top:2px;}
+.p-price{font-family:'Geist Mono',monospace;font-size:.85rem;font-weight:500;color:var(--teal);flex-shrink:0;}
+.stock-tag{
+  font-family:'Geist Mono',monospace;font-size:.62rem;
+  padding:2px 7px;border-radius:100px;flex-shrink:0;
+}
+.s-ok {background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;}
+.s-low{background:var(--amber-light);color:var(--amber);border:1px solid #fde68a;}
+.s-out{background:var(--rose-light);color:var(--rose);border:1px solid #fecaca;}
+
+/* order form */
+.form-group{margin-bottom:14px;}
+.form-label{font-size:.75rem;font-weight:600;color:var(--ink-2);display:block;margin-bottom:5px;letter-spacing:.02em;}
+.form-control{
+  width:100%;padding:9px 12px;
+  font-family:'Geist',sans-serif;font-size:.82rem;
+  background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);
+  color:var(--ink);transition:border-color var(--t) var(--ease);outline:none;
+}
+.form-control:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-glow);}
+.form-control:disabled{opacity:.5;cursor:not-allowed;}
+.qty-row{display:flex;gap:8px;align-items:center;}
+.qty-btn{
+  width:32px;height:32px;border-radius:var(--r-sm);border:1px solid var(--rule);
+  background:var(--surface);color:var(--ink);font-size:1rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all var(--t) var(--ease);flex-shrink:0;
+}
+.qty-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal);}
+#qty-display{
+  flex:1;text-align:center;padding:7px;
+  font-family:'Geist Mono',monospace;font-size:.88rem;font-weight:500;
+  background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);
+}
+
+.selected-info{
+  background:var(--teal-light);border:1px solid rgba(13,115,119,.2);
+  border-radius:var(--r);padding:12px;margin-bottom:14px;
+  font-size:.78rem;color:var(--teal);line-height:1.6;
+}
+.selected-info strong{font-weight:600;}
+.no-selection{
+  background:var(--rule-soft);border:1px dashed var(--rule);
+  border-radius:var(--r);padding:14px;text-align:center;
+  font-size:.78rem;color:var(--ink-3);margin-bottom:14px;
+}
+
+.btn-register{
+  width:100%;padding:11px;
+  font-family:'Geist',sans-serif;font-size:.83rem;font-weight:600;
+  background:var(--teal);color:#fff;border:none;border-radius:var(--r);
+  cursor:pointer;transition:all var(--t) var(--ease);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-register:hover:not(:disabled){background:#0a5f63;box-shadow:0 4px 16px rgba(13,115,119,.3);}
+.btn-register:disabled{background:var(--rule);color:var(--ink-3);cursor:not-allowed;}
+
+/* transaction log */
+.log-wrap{max-width:900px;margin:0 auto;padding:0 40px 100px;}
+.log-title{font-family:'Instrument Serif',serif;font-size:1.05rem;letter-spacing:-.01em;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.log-count{font-family:'Geist Mono',monospace;font-size:.65rem;background:var(--teal-light);color:var(--teal);padding:2px 8px;border-radius:100px;}
+.log-empty{
+  background:var(--surface);border:1px dashed var(--rule);border-radius:var(--r-lg);
+  padding:40px;text-align:center;color:var(--ink-3);font-size:.83rem;
+}
+.log-list{display:flex;flex-direction:column;gap:10px;}
+.log-entry{
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);
+  padding:18px 22px;box-shadow:var(--sh-sm);
+  animation:logIn .3s var(--ease) both;
+}
+@keyframes logIn{from{opacity:0;transform:translateX(-12px);}to{opacity:1;transform:translateX(0);}}
+.log-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.log-badge{
+  background:var(--teal);color:#fff;
+  font-family:'Geist Mono',monospace;font-size:.65rem;font-weight:500;
+  padding:3px 10px;border-radius:100px;
+}
+.log-time{font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--ink-3);}
+.log-body{font-family:'Geist Mono',monospace;font-size:.73rem;color:var(--ink);line-height:1.7;}
+.log-row{display:flex;gap:8px;}
+.log-key{color:var(--ink-3);width:120px;flex-shrink:0;}
+.log-val{color:var(--teal);font-weight:500;}
+.log-table{color:var(--amber);font-weight:500;}
+.log-insert{color:#22c55e;font-weight:500;}
+
+/* ══════════════════════════════════════════════════════════ */
+/*  FLOW FOOTER                                              */
+/* ══════════════════════════════════════════════════════════ */
+footer{
+  border-top:1px solid var(--rule);
+  background:var(--surface);
+  padding:80px 40px 72px;
+  text-align:center;
+}
+footer h2{
+  font-family:'Instrument Serif',serif;
+  font-size:clamp(1.6rem,3vw,2.4rem);letter-spacing:-.03em;
+  margin-bottom:12px;
+}
+footer>p{font-size:.87rem;color:var(--ink-2);max-width:440px;margin:0 auto 52px;line-height:1.7;}
+.flow-row{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;max-width:720px;margin:0 auto;}
+.flow-card{
+  background:var(--paper);border:1px solid var(--rule);border-radius:var(--r-lg);
+  padding:26px 28px;width:196px;
+  transition:all .25s var(--ease);cursor:pointer;
+}
+.flow-card:hover{border-color:var(--teal);transform:translateY(-5px);box-shadow:var(--sh-md);}
+.flow-num{font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--ink-3);margin-bottom:10px;}
+.flow-icon{font-size:1.8rem;margin-bottom:10px;}
+.flow-name{font-family:'Instrument Serif',serif;font-size:1rem;letter-spacing:-.01em;margin-bottom:5px;}
+.flow-desc{font-size:.73rem;color:var(--ink-2);line-height:1.5;}
+.flow-arrow{font-size:1.2rem;color:var(--ink-3);padding:0 10px;}
+.footer-note{margin-top:44px;font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--ink-3);}
+
+/* ── TOAST ─────────────────────────────────────────────────── */
+#toasts{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:999;}
+.toast{
+  background:var(--ink);color:#fff;
+  font-size:.78rem;font-weight:500;
+  padding:11px 18px;border-radius:var(--r);box-shadow:var(--sh-lg);
+  animation:tin .25s var(--ease),tout .25s var(--ease) 2.5s both;
+  display:flex;align-items:center;gap:8px;
+}
+.toast.ok{background:var(--teal);}
+@keyframes tin {from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes tout{to{opacity:0;transform:translateY(10px);}}
+
+/* ── UTILS ─────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:var(--rule);border-radius:3px;}
+@media(max-width:640px){
+  header{padding:0 16px;}
+  .hero,.wrap,.log-wrap{padding-left:16px;padding-right:16px;}
+  .flow-arrow{display:none;}
+  .pill span{display:none;}
+}
+.diagram-caption,
+.schema-legend,
+.wrap p[style*="Geist Mono"] {
+  display: none !important;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<header>
+  <div class="brand">
+    <div class="brand-icon">db</div>
+    empresa<em style="font-family:'Instrument Serif',serif;font-style:italic;">DB</em>
+  </div>
+
+  <nav class="nav-pills">
+    <button class="pill active" onclick="show('diagram',this)">
+      <span>⬡</span> Diagrama
+    </button>
+    <button class="pill" onclick="show('sql',this)">
+      <span>{ }</span> SQL
+    </button>
+    <button class="pill" onclick="show('demo',this)">
+      <span>▷</span> Demo
+    </button>
+  </nav>
+
+  <span class="header-tag">PostgreSQL · 4 tablas</span>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  VIEW 1 — DIAGRAM                                          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="view-diagram" class="view active">
+  <div class="hero">
+    <div class="eyebrow">Modelo Entidad–Relación</div>
+    <h1>Diagrama de <em>Base de Datos</em></h1>
+    <p>Estructura relacional del sistema empresarial: proveedores, productos, ventas y detalle de ventas.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="diagram-frame">
+      <div class="diagram-topbar">
+        <div class="traffic"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
+        <span class="diagram-label">diagrama.svg — empresa database</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--ink-3);">4 entidades · 3 relaciones</span>
+      </div>
+
+      <div class="diagram-body">
+        <!-- ╔══════════════════════════════════════╗
+             ║  REPLACE THIS <object> WITH YOUR SVG ║
+             ║  <object data="diagrama.svg"          ║
+             ║          type="image/svg+xml"         ║
+             ║          class="svg-container">       ║
+             ║  </object>                            ║
+             ╚══════════════════════════════════════╝ -->
+
+        <!-- Inline ER diagram — rendered from schema.sql -->
+  <div class="svg-container">
+  <img src="diagrama.svg" alt="Diagrama ER">
+</div>
+             
+        <div class="diagram-caption">
+        </div>
+
+        <div class="schema-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#0d7377;"></div>proveedores</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#b45309;"></div>productos</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#334155;"></div>ventas</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#be123c;"></div>detalle_venta</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#9a9692;border:1px solid var(--rule);"></div>🔑 PK / 🔗 FK</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- how to use your real svg -->
+    <p style="font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--ink-3);text-align:center;margin-top:14px;">
+      Para usar tu archivo real: reemplaza el bloque &lt;svg&gt; por
+      <code style="background:var(--rule-soft);padding:1px 5px;border-radius:3px;">&lt;object data="diagrama.svg" type="image/svg+xml" class="svg-container"&gt;&lt;/object&gt;</code>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  VIEW 2 — SQL                                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="view-sql" class="view">
+  <div class="hero">
+    <div class="eyebrow">PostgreSQL · DDL Statements</div>
+    <h1>Esquema <em>SQL</em></h1>
+    <p>Definición exacta de tablas extraída de <code style="font-family:'Geist Mono',monospace;font-size:.85em;">schema.sql</code>. Sintaxis PostgreSQL con SERIAL y claves foráneas.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="editor-shell">
+      <!-- toolbar -->
+      <div class="editor-bar">
+        <div class="editor-bar-left">
+          <div class="traffic"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
+          <span class="editor-filename">schema.sql — empresa</span>
+        </div>
+        <div class="editor-actions">
+          <button class="btn btn-outline" onclick="createTables()">▣ Crear tablas</button>
+          <button class="btn btn-teal"    onclick="runJoin()">▷ Ejecutar consulta</button>
+        </div>
+      </div>
+
+      <div id="sql-progress" class="exec-bar"></div>
+
+      <!-- code -->
+      <div class="code-scroll">
+        <div class="code-body"><span class="cm">-- ─────────────────────────────────────────────────</span>
+<span class="cm">-- Base de datos: empresa</span>
+<span class="cm">-- Motor: PostgreSQL | Archivo: schema.sql</span>
+<span class="cm">-- ─────────────────────────────────────────────────</span>
+
+<span class="kw">CREATE DATABASE</span> <span class="tb">empresa</span>;
+
+
+<span class="cm">-- ── Tabla 1: proveedores ──────────────────────────</span>
+<span class="kw">CREATE TABLE</span> <span class="tb">proveedores</span> (
+  <span class="co">id_proveedor</span>      <span class="ty">SERIAL</span>       <span class="kw">PRIMARY KEY</span>,
+  <span class="co">nombre_proveedor</span>  <span class="ty">VARCHAR</span>(<span class="nu">50</span>),
+  <span class="co">telefono</span>          <span class="ty">VARCHAR</span>(<span class="nu">20</span>),
+  <span class="co">correo</span>            <span class="ty">VARCHAR</span>(<span class="nu">80</span>),
+  <span class="co">direccion</span>         <span class="ty">VARCHAR</span>(<span class="nu">80</span>)
+);
+
+
+<span class="cm">-- ── Tabla 2: productos ───────────────────────────</span>
+<span class="kw">CREATE TABLE</span> <span class="tb">productos</span> (
+  <span class="co">id_producto</span>   <span class="ty">SERIAL</span>          <span class="kw">PRIMARY KEY</span>,
+  <span class="co">nombre</span>        <span class="ty">VARCHAR</span>(<span class="nu">50</span>),
+  <span class="co">marca</span>         <span class="ty">VARCHAR</span>(<span class="nu">50</span>),
+  <span class="co">categoria</span>     <span class="ty">VARCHAR</span>(<span class="nu">50</span>),
+  <span class="co">precio</span>        <span class="ty">NUMERIC</span>(<span class="nu">10</span>,<span class="nu">2</span>),
+  <span class="co">stock</span>         <span class="ty">INT</span>,
+  <span class="co">id_proveedor</span>  <span class="ty">INT</span>,
+  <span class="kw">FOREIGN KEY</span> (<span class="co">id_proveedor</span>) <span class="kw">REFERENCES</span> <span class="tb">proveedores</span>(<span class="co">id_proveedor</span>)
+);
+
+
+<span class="cm">-- ── Tabla 3: ventas ──────────────────────────────</span>
+<span class="kw">CREATE TABLE</span> <span class="tb">ventas</span> (
+  <span class="co">id_venta</span>          <span class="ty">SERIAL</span>       <span class="kw">PRIMARY KEY</span>,
+  <span class="co">fecha</span>             <span class="ty">DATE</span>,
+  <span class="co">nombre_cliente</span>    <span class="ty">VARCHAR</span>(<span class="nu">80</span>),
+  <span class="co">documento_cliente</span> <span class="ty">VARCHAR</span>(<span class="nu">20</span>)
+);
+
+
+<span class="cm">-- ── Tabla 4: detalle_venta ───────────────────────</span>
+<span class="kw">CREATE TABLE</span> <span class="tb">detalle_venta</span> (
+  <span class="co">id_detalle</span>   <span class="ty">SERIAL</span>  <span class="kw">PRIMARY KEY</span>,
+  <span class="co">id_venta</span>     <span class="ty">INT</span>,
+  <span class="co">id_producto</span>  <span class="ty">INT</span>,
+  <span class="co">cantidad</span>     <span class="ty">INT</span>,
+  <span class="kw">FOREIGN KEY</span> (<span class="co">id_venta</span>)    <span class="kw">REFERENCES</span> <span class="tb">ventas</span>(<span class="co">id_venta</span>),
+  <span class="kw">FOREIGN KEY</span> (<span class="co">id_producto</span>) <span class="kw">REFERENCES</span> <span class="tb">productos</span>(<span class="co">id_producto</span>)
+);
+
+
+<span class="cm">-- ── Consulta JOIN: ventas con producto y proveedor ─</span>
+<span class="kw">SELECT</span>
+  <span class="co">v.id_venta</span>,
+  <span class="co">v.nombre_cliente</span>,
+  <span class="co">p.nombre</span>       <span class="kw">AS</span> <span class="st">producto</span>,
+  <span class="co">pr.nombre_proveedor</span> <span class="kw">AS</span> <span class="st">proveedor</span>,
+  <span class="co">dv.cantidad</span>
+<span class="kw">FROM</span> <span class="tb">detalle_venta</span> <span class="co">dv</span>
+<span class="kw">JOIN</span> <span class="tb">ventas</span>      <span class="co">v</span>  <span class="kw">ON</span> <span class="co">dv.id_venta</span>    <span class="op">=</span> <span class="co">v.id_venta</span>
+<span class="kw">JOIN</span> <span class="tb">productos</span>   <span class="co">p</span>  <span class="kw">ON</span> <span class="co">dv.id_producto</span> <span class="op">=</span> <span class="co">p.id_producto</span>
+<span class="kw">JOIN</span> <span class="tb">proveedores</span> <span class="co">pr</span> <span class="kw">ON</span> <span class="co">p.id_proveedor</span>  <span class="op">=</span> <span class="co">pr.id_proveedor</span>;</div>
+      </div>
+
+      <!-- result -->
+      <div class="result-area" id="result-area">
+        <div class="result-status status-idle" id="result-icon">✓</div>
+        <div class="result-msg" id="result-msg">
+          <strong>Listo</strong> — Haz clic en "Ejecutar consulta" para ver resultados del JOIN.
+        </div>
+      </div>
+      <div id="result-table-wrap">
+        <table class="result-table" id="result-table"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  VIEW 3 — DEMO                                             -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="view-demo" class="view">
+  <div class="hero">
+    <div class="eyebrow">Simulación de aplicación</div>
+    <h1>Demo <em>Interactivo</em></h1>
+    <p>Simula el flujo real de la base de datos: selecciona un producto, registra la venta y observa cómo se insertan datos en <code style="font-family:'Geist Mono',monospace;font-size:.85em;">detalle_venta</code>.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="demo-layout">
+
+      <!-- LEFT: product list -->
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">PRODUCTOS</span>
+          <span class="panel-subtitle">tabla: productos</span>
+        </div>
+        <div class="panel-body">
+          <div class="product-list" id="product-list"><!-- rendered by JS --></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: order form -->
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">REGISTRAR VENTA</span>
+          <span class="panel-subtitle">tablas: ventas · detalle_venta</span>
+        </div>
+        <div class="panel-body">
+
+          <div id="selection-box" class="no-selection">
+            ← Selecciona un producto de la lista
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">NOMBRE DEL CLIENTE</label>
+            <input class="form-control" id="f-cliente" type="text" placeholder="Ej: Juan García" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">DOCUMENTO</label>
+            <input class="form-control" id="f-doc" type="text" placeholder="Ej: 1234567890" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">CANTIDAD</label>
+            <div class="qty-row">
+              <button class="qty-btn" onclick="changeQty(-1)">−</button>
+              <div id="qty-display">1</div>
+              <button class="qty-btn" onclick="changeQty(1)">+</button>
+            </div>
+          </div>
+
+          <button class="btn-register" id="btn-register" onclick="registerSale()">
+            ▷ &nbsp;Registrar Venta
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSACTION LOG -->
+  <div class="log-wrap">
+    <div class="log-title">
+      Log de transacciones
+      <span class="log-count" id="log-count">0 registros</span>
+    </div>
+    <div id="log-container">
+      <div class="log-empty" id="log-empty">
+        Las ventas registradas aparecerán aquí como sentencias INSERT simuladas.
+      </div>
+      <div class="log-list" id="log-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  FOOTER                                                    -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="eyebrow" style="margin-bottom:20px;">Resumen del proyecto</div>
+  <h2>De Diseño a Implementación</h2>
+  <p>Este proyecto demuestra el proceso completo: diseño relacional, implementación SQL y uso real de la base de datos.</p>
+
+  <div class="flow-row">
+    <div class="flow-card" onclick="show('diagram',null)">
+      <div class="flow-num">01 / Diagram</div>
+      <div class="flow-icon">🗂️</div>
+      <div class="flow-name">Diagrama ER</div>
+      <div class="flow-desc">Estructura relacional de la base de datos empresa.</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-card" onclick="show('sql',null)">
+      <div class="flow-num">02 / SQL</div>
+      <div class="flow-icon">💾</div>
+      <div class="flow-name">Esquema SQL</div>
+      <div class="flow-desc">DDL PostgreSQL exacto del archivo schema.sql.</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-card" onclick="show('demo',null)">
+      <div class="flow-num">03 / Demo</div>
+      <div class="flow-icon">🛒</div>
+      <div class="flow-name">Aplicación</div>
+      <div class="flow-desc">Simulación de ventas con log de operaciones DB.</div>
+    </div>
+  </div>
+
+  <p class="footer-note">PostgreSQL · schema.sql · HTML · CSS · JS — sin frameworks</p>
+</footer>
+
+<div id="toasts"></div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  JAVASCRIPT                                                -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script>
+/* ── TAB NAVIGATION ──────────────────────────────────────── */
+function show(name, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else {
+    const map = { diagram: 0, sql: 1, demo: 2 };
+    document.querySelectorAll('.pill')[map[name]].classList.add('active');
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── SQL SECTION ─────────────────────────────────────────── */
+let sqlBusy = false;
+
+function runJoin() {
+  if (sqlBusy) return;
+  sqlBusy = true;
+
+  const prog = document.getElementById('sql-progress');
+  const icon = document.getElementById('result-icon');
+  const msg  = document.getElementById('result-msg');
+  const wrap = document.getElementById('result-table-wrap');
+
+  wrap.style.display = 'none';
+  prog.classList.add('running');
+  icon.className = 'result-status status-run';
+  icon.textContent = '⟳';
+  msg.innerHTML = '<strong>Ejecutando...</strong> — JOIN entre detalle_venta, ventas, productos, proveedores';
+
+  const rows = [
+    ['1', 'Carlos Mendoza',  'Monitor 4K',     'TechVision S.A.',   '2'],
+    ['2', 'Laura Ospina',    'Teclado mecánico','Periféricos Plus',  '1'],
+    ['3', 'Diego Ramírez',   'Mouse inalámbr.', 'TechVision S.A.',   '3'],
+    ['4', 'Ana Restrepo',    'Monitor 4K',     'TechVision S.A.',   '1'],
+  ];
+
+  setTimeout(() => {
+    prog.classList.remove('running');
+    icon.className = 'result-status status-ok';
+    icon.textContent = '✓';
+    msg.innerHTML = `<strong>Consulta exitosa</strong> — ${rows.length} filas · 5 columnas · JOIN 4 tablas`;
+
+    const tbl = document.getElementById('result-table');
+    tbl.innerHTML = `
+      <thead><tr>
+        <th>id_venta</th><th>nombre_cliente</th><th>producto</th>
+        <th>proveedor</th><th>cantidad</th>
+      </tr></thead>
+      <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+    `;
+    wrap.style.display = 'block';
+    sqlBusy = false;
+    toast('Consulta JOIN ejecutada correctamente', 'ok');
+  }, 850);
+}
+
+function createTables() {
+  const prog = document.getElementById('sql-progress');
+  const icon = document.getElementById('result-icon');
+  const msg  = document.getElementById('result-msg');
+  const wrap = document.getElementById('result-table-wrap');
+
+  wrap.style.display = 'none';
+  prog.classList.add('running');
+  icon.className = 'result-status status-run';
+  icon.textContent = '⟳';
+  msg.innerHTML = '<strong>Creando tablas...</strong> — proveedores, productos, ventas, detalle_venta';
+
+  setTimeout(() => {
+    prog.classList.remove('running');
+    icon.className = 'result-status status-ok';
+    icon.textContent = '✓';
+    msg.innerHTML = '<strong>Tablas creadas:</strong> proveedores ✓ · productos ✓ · ventas ✓ · detalle_venta ✓ — claves foráneas aplicadas';
+    toast('4 tablas creadas en empresa DB', 'ok');
+  }, 680);
+}
+
+/* ── DEMO DATA ───────────────────────────────────────────── */
+const proveedores = [
+  { id: 1, nombre: 'TechVision S.A.',   correo: 'ventas@techvision.co' },
+  { id: 2, nombre: 'Periféricos Plus',  correo: 'info@perifericos.co'  },
+  { id: 3, nombre: 'OfiEquipos Ltda.',  correo: 'contacto@ofiequipos.co'},
+];
+
+const productos = [
+  { id: 1, nombre: 'Monitor 4K 27"',    marca: 'Samsung',  categoria: 'Pantallas',    precio: 1250000, stock: 8,  id_proveedor: 1, emoji: '🖥️' },
+  { id: 2, nombre: 'Teclado mecánico',  marca: 'Logitech', categoria: 'Periféricos',  precio:  320000, stock: 3,  id_proveedor: 2, emoji: '⌨️' },
+  { id: 3, nombre: 'Mouse inalámbrico', marca: 'HP',       categoria: 'Periféricos',  precio:   95000, stock: 12, id_proveedor: 2, emoji: '🖱️' },
+  { id: 4, nombre: 'Silla ergonómica',  marca: 'HM',       categoria: 'Mobiliario',   precio: 890000,  stock: 2,  id_proveedor: 3, emoji: '🪑' },
+  { id: 5, nombre: 'Disco SSD 1TB',     marca: 'Kingston', categoria: 'Almacenamiento',precio: 280000, stock: 0,  id_proveedor: 1, emoji: '💽' },
+];
+
+let selectedProductId = null;
+let qty = 1;
+let saleCounter = 0;
+let detailCounter = 0;
+const sales = [];
+
+function stockClass(s) {
+  if (s === 0) return 's-out';
+  if (s <= 3)  return 's-low';
+  return 's-ok';
+}
+function stockLabel(s) {
+  if (s === 0) return 'Sin stock';
+  if (s <= 3)  return s + ' unid.';
+  return s + ' en stock';
+}
+function fmtCOP(n) {
+  return '$' + n.toLocaleString('es-CO');
+}
+
+function renderProducts() {
+  const list = document.getElementById('product-list');
+  list.innerHTML = productos.map(p => `
+    <div class="product-row ${selectedProductId === p.id ? 'selected' : ''}"
+         id="prow-${p.id}"
+         onclick="selectProduct(${p.id})"
+         style="${p.stock === 0 ? 'opacity:.45;cursor:not-allowed;' : ''}">
+      <div class="p-emoji">${p.emoji}</div>
+      <div class="p-info">
+        <div class="p-name">${p.nombre}</div>
+        <div class="p-meta">${p.marca} · ${p.categoria}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+        <div class="p-price">${fmtCOP(p.precio)}</div>
+        <span class="stock-tag ${stockClass(p.stock)}">${stockLabel(p.stock)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectProduct(id) {
+  const p = productos.find(x => x.id === id);
+  if (!p || p.stock === 0) return;
+  selectedProductId = id;
+  qty = 1;
+  document.getElementById('qty-display').textContent = qty;
+  renderProducts();
+
+  const prov = proveedores.find(x => x.id === p.id_proveedor);
+  document.getElementById('selection-box').outerHTML = `
+    <div class="selected-info" id="selection-box">
+      <strong>${p.emoji} ${p.nombre}</strong><br>
+      Proveedor: <strong>${prov ? prov.nombre : '—'}</strong><br>
+      Precio unit.: <strong>${fmtCOP(p.precio)}</strong> &nbsp;·&nbsp; Stock: <strong>${p.stock}</strong>
+    </div>`;
+}
+
+function changeQty(delta) {
+  if (!selectedProductId) return;
+  const p = productos.find(x => x.id === selectedProductId);
+  qty = Math.max(1, Math.min(p ? p.stock : 1, qty + delta));
+  document.getElementById('qty-display').textContent = qty;
+}
+
+function registerSale() {
+  const cliente = document.getElementById('f-cliente').value.trim();
+  const doc     = document.getElementById('f-doc').value.trim();
+
+  if (!selectedProductId)    { toast('Selecciona un producto primero', ''); return; }
+  if (!cliente)              { toast('Ingresa el nombre del cliente', ''); return; }
+  if (!doc)                  { toast('Ingresa el documento del cliente', ''); return; }
+
+  const p    = productos.find(x => x.id === selectedProductId);
+  const prov = proveedores.find(x => x.id === p.id_proveedor);
+
+  p.stock -= qty;
+  saleCounter++;
+  detailCounter++;
+
+  const saleId   = saleCounter;
+  const detailId = detailCounter;
+  const now      = new Date();
+  const fecha    = now.toISOString().split('T')[0];
+  const hora     = now.toTimeString().slice(0,8);
+
+  // add to log
+  addLog({ saleId, detailId, cliente, doc, producto: p, proveedor: prov, qty, fecha, hora });
+
+  // reset
+  selectedProductId = null;
+  qty = 1;
+  document.getElementById('f-cliente').value = '';
+  document.getElementById('f-doc').value = '';
+  document.getElementById('qty-display').textContent = '1';
+  document.getElementById('selection-box').outerHTML =
+    '<div class="no-selection" id="selection-box">← Selecciona un producto de la lista</div>';
+  renderProducts();
+  toast(`Venta #${saleId} registrada correctamente`, 'ok');
+}
+
+function addLog({ saleId, detailId, cliente, doc, producto, proveedor, qty, fecha, hora }) {
+  document.getElementById('log-empty').style.display = 'none';
+
+  const list  = document.getElementById('log-list');
+  const count = document.getElementById('log-count');
+  const total = parseInt(count.textContent) + 1;
+  count.textContent = total + (total === 1 ? ' registro' : ' registros');
+
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <div class="log-header">
+      <span class="log-badge">INSERT · detalle_venta</span>
+      <span class="log-time">${fecha} ${hora}</span>
+    </div>
+    <div class="log-body">
+      <div class="log-row"><span class="log-key">-- Venta</span>
+        <span class="log-insert">INSERT INTO ventas</span>
+        <span style="color:var(--ink-2);margin-left:4px;">(id_venta: <span class="log-val">${saleId}</span>, fecha: <span class="log-val">'${fecha}'</span>, nombre_cliente: <span class="log-val">'${cliente}'</span>, documento_cliente: <span class="log-val">'${doc}'</span>)</span>
+      </div>
+      <div style="height:6px;"></div>
+      <div class="log-row"><span class="log-key">-- Detalle</span>
+        <span class="log-insert">INSERT INTO detalle_venta</span>
+        <span style="color:var(--ink-2);margin-left:4px;">(id_detalle: <span class="log-val">${detailId}</span>, id_venta: <span class="log-val">${saleId}</span>, id_producto: <span class="log-val">${producto.id}</span>, cantidad: <span class="log-val">${qty}</span>)</span>
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--rule);display:flex;gap:24px;flex-wrap:wrap;">
+        <span><span class="log-key" style="width:auto;margin-right:4px;">producto:</span><span class="log-val">${producto.nombre}</span></span>
+        <span><span class="log-key" style="width:auto;margin-right:4px;">proveedor:</span><span class="log-table">${proveedor ? proveedor.nombre : '—'}</span></span>
+        <span><span class="log-key" style="width:auto;margin-right:4px;">cantidad:</span><span class="log-val">${qty}</span></span>
+        <span><span class="log-key" style="width:auto;margin-right:4px;">tabla afectada:</span><span class="log-table">detalle_venta</span></span>
+      </div>
+    </div>`;
+
+  list.prepend(entry);
+}
+
+/* ── TOAST ───────────────────────────────────────────────── */
+function toast(msg, type) {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type === 'ok' ? ' ok' : '');
+  t.textContent = (type === 'ok' ? '✓  ' : 'ℹ  ') + msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 2900);
+}
+
+/* ── INIT ────────────────────────────────────────────────── */
+renderProducts();
+</script>
+</body>
+</html>
