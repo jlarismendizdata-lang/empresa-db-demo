@@ -51,7 +51,7 @@ The project includes a custom SQL interpreter that supports:
 - WHERE conditions  
 - GROUP BY and ORDER BY  
 
-Live Demo
+## Live Demo
 
 https://jlarismendizdata-lang.github.io/empresa-db-demo/
 
@@ -61,10 +61,11 @@ HTML
 CSS
 JavaScript
 Chart.js
-Notes
+
+## Notes
 
 This project is designed for educational purposes, focusing on understanding relational databases, data flow, and system interaction in a practical and visual way.
 
-Author
+## Author
 
 Jose Luis Luna Arismendiz
