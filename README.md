@@ -51,13 +51,6 @@ The project includes a custom SQL interpreter that supports:
 - WHERE conditions  
 - GROUP BY and ORDER BY  
 
-Example query:
-
-```sql
-SELECT s.sale_id, c.name AS customer, s.total
-FROM sales s
-JOIN customers c ON s.customer_id = c.customer_id;
-
 Live Demo
 
 https://jlarismendizdata-lang.github.io/empresa-db-demo/
