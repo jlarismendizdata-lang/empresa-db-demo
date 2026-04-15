@@ -58,4 +58,20 @@ SELECT s.sale_id, c.name AS customer, s.total
 FROM sales s
 JOIN customers c ON s.customer_id = c.customer_id;
 
+Live Demo
 
+https://jlarismendizdata-lang.github.io/empresa-db-demo/
+
+Technologies
+PostgreSQL (conceptual design)
+HTML
+CSS
+JavaScript
+Chart.js
+Notes
+
+This project is designed for educational purposes, focusing on understanding relational databases, data flow, and system interaction in a practical and visual way.
+
+Author
+
+Jose Luis Luna Arismendiz
