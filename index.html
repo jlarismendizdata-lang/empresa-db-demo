@@ -1,977 +1,2206 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Empresa DB — Diseño a Implementación</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataForge — Company Relational Database</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-/* ── DESIGN TOKENS ─────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════════════════════════ */
 :root {
-  --ink:        #0a0908;
-  --ink-2:      #4a4744;
-  --ink-3:      #9a9692;
-  --paper:      #faf9f7;
-  --surface:    #ffffff;
-  --rule:       #e8e5e0;
-  --rule-soft:  #f0ede8;
-
-  --teal:       #0d7377;
-  --teal-light: #e6f4f4;
-  --teal-glow:  rgba(13,115,119,.12);
-  --amber:      #b45309;
-  --amber-light:#fef3c7;
-  --rose:       #be123c;
-  --rose-light: #fff1f2;
-  --slate:      #334155;
-
-  --code-bg:    #0d1117;
-  --code-fg:    #cdd9e5;
-
-  --r:          12px;
-  --r-lg:       20px;
-  --r-xl:       28px;
-  --ease:       cubic-bezier(.4,0,.2,1);
-  --t:          .22s;
-
-  --sh-sm: 0 1px 3px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.04);
-  --sh-md: 0 4px 16px rgba(0,0,0,.07), 0 1px 4px rgba(0,0,0,.04);
-  --sh-lg: 0 12px 40px rgba(0,0,0,.09), 0 4px 12px rgba(0,0,0,.04);
+  --bg:        #07090f;
+  --bg2:       #0d1017;
+  --surface:   #111520;
+  --surface2:  #181e2e;
+  --border:    rgba(99,120,180,0.12);
+  --border2:   rgba(99,120,180,0.22);
+  --accent:    #3b82f6;
+  --accent-g:  #22c55e;
+  --accent-a:  #f59e0b;
+  --accent-r:  #ef4444;
+  --accent-p:  #a78bfa;
+  --fg:        #e8edf5;
+  --fg2:       #8892a4;
+  --fg3:       #4a5568;
+  --radius:    12px;
+  --font:      'Space Grotesk', sans-serif;
+  --mono:      'Fira Code', monospace;
+  --shadow:    0 4px 24px rgba(0,0,0,0.5);
+  --glow-b:    0 0 24px rgba(59,130,246,0.18);
+  --glow-g:    0 0 24px rgba(34,197,94,0.18);
+  --t:         0.25s cubic-bezier(0.4,0,0.2,1);
 }
 
-/* ── RESET ─────────────────────────────────────────────────── */
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
+/* ══ RESET ══ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
 body{
-  font-family:'Geist',sans-serif;
-  background:var(--paper);
-  color:var(--ink);
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--fg);
   min-height:100vh;
-  -webkit-font-smoothing:antialiased;
-  line-height:1.6;
+  overflow-x:hidden;
 }
 
-/* ── TOPBAR ────────────────────────────────────────────────── */
-header{
-  position:sticky;top:0;z-index:200;
-  height:58px;
-  background:rgba(250,249,247,.92);
-  backdrop-filter:blur(16px);
-  border-bottom:1px solid var(--rule);
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 40px;
+/* ══════════════════════════════════════════════════════════
+   LANDING
+══════════════════════════════════════════════════════════ */
+#landing{
+  position:fixed;inset:0;z-index:9000;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .7s ease, transform .7s ease;
 }
-.brand{
+#landing.exit{opacity:0;transform:scale(1.03);pointer-events:none;}
+.land-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 50% at 30% 20%, rgba(59,130,246,.08) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 35% at 75% 75%, rgba(34,197,94,.06) 0%, transparent 60%);
+}
+.land-grid{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(99,120,180,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,120,180,.04) 1px, transparent 1px);
+  background-size:48px 48px;
+}
+.land-content{
+  position:relative;z-index:2;text-align:center;
+  max-width:600px;padding:0 24px;
+  animation:fadeUp .9s ease .2s both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:translateY(0);}}
+.land-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 14px;border-radius:99px;
+  background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);
+  font-size:11px;font-weight:600;color:var(--accent);
+  letter-spacing:.8px;text-transform:uppercase;margin-bottom:24px;
+}
+.land-title{
+  font-size:56px;font-weight:700;letter-spacing:-2px;line-height:1.1;
+  color:var(--fg);margin-bottom:16px;
+}
+.land-title span{
+  background:linear-gradient(135deg, var(--accent), var(--accent-g));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.land-sub{
+  font-size:15px;color:var(--fg2);line-height:1.7;
+  max-width:460px;margin:0 auto 32px;
+}
+.land-btn{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:14px 32px;border-radius:10px;
+  background:var(--accent);color:#fff;
+  font-size:14px;font-weight:600;font-family:var(--font);
+  border:none;cursor:pointer;
+  box-shadow:0 6px 28px rgba(59,130,246,.32);
+  transition:all .3s var(--t);
+}
+.land-btn:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(59,130,246,.44);}
+.land-pills{
+  display:flex;gap:10px;justify-content:center;
+  margin-top:40px;flex-wrap:wrap;
+}
+.land-pill{
+  padding:7px 14px;border-radius:8px;
+  background:var(--surface);border:1px solid var(--border);
+  font-size:12px;color:var(--fg2);font-weight:500;
+  display:flex;align-items:center;gap:6px;
+}
+.land-pill i{color:var(--accent);font-size:11px;}
+
+/* ══════════════════════════════════════════════════════════
+   LOADER
+══════════════════════════════════════════════════════════ */
+#loader{
+  position:fixed;inset:0;z-index:8000;
+  background:var(--bg);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  transition:opacity .5s ease;
+}
+#loader.hide{opacity:0;pointer-events:none;}
+.spin{
+  width:44px;height:44px;border-radius:50%;
+  border:2px solid var(--border2);
+  border-top-color:var(--accent);
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-txt{margin-top:14px;font-size:12px;color:var(--fg3);letter-spacing:2px;text-transform:uppercase;}
+
+/* ══════════════════════════════════════════════════════════
+   NAV
+══════════════════════════════════════════════════════════ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  height:60px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;
+  background:rgba(7,9,15,.88);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.nav-brand{
   display:flex;align-items:center;gap:10px;
-  font-family:'Instrument Serif',serif;
-  font-size:1.1rem;letter-spacing:-.01em;
-  color:var(--ink);
+  font-weight:700;font-size:17px;letter-spacing:-.4px;
 }
 .brand-icon{
-  width:28px;height:28px;border-radius:7px;
-  background:var(--teal);
+  width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),#1d4ed8);
   display:flex;align-items:center;justify-content:center;
-  color:#fff;font-size:.75rem;font-family:'Geist Mono',monospace;font-weight:500;
+  font-size:13px;color:#fff;font-weight:700;
 }
-.nav-pills{display:flex;gap:2px;background:var(--rule-soft);padding:3px;border-radius:100px;border:1px solid var(--rule);}
-.pill{
-  font-size:.78rem;font-weight:500;letter-spacing:.01em;
-  padding:5px 16px;border-radius:100px;border:none;
-  background:transparent;color:var(--ink-2);
-  cursor:pointer;transition:all var(--t) var(--ease);
-  font-family:'Geist',sans-serif;
+.nav-links{display:flex;gap:2px;}
+.nav-link{
+  padding:7px 13px;border-radius:8px;
+  font-size:12.5px;font-weight:500;color:var(--fg2);
+  cursor:pointer;border:none;background:none;font-family:var(--font);
+  transition:all var(--t);display:flex;align-items:center;gap:6px;
 }
-.pill:hover{color:var(--ink);}
-.pill.active{background:var(--surface);color:var(--teal);box-shadow:var(--sh-sm);font-weight:600;}
-.header-tag{
-  font-family:'Geist Mono',monospace;font-size:.7rem;
-  color:var(--ink-3);border:1px solid var(--rule);
-  border-radius:100px;padding:3px 11px;
-}
+.nav-link i{font-size:11px;}
+.nav-link:hover{color:var(--fg);background:var(--surface);}
+.nav-link.active{color:var(--accent);background:rgba(59,130,246,.1);}
 
-/* ── SECTION SYSTEM ────────────────────────────────────────── */
-.view{display:none;}
-.view.active{display:block;animation:appear .3s var(--ease) both;}
-@keyframes appear{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
-
-/* ── PAGE HERO ─────────────────────────────────────────────── */
-.hero{
-  max-width:900px;margin:0 auto;
-  padding:64px 40px 36px;
+/* ══════════════════════════════════════════════════════════
+   LAYOUT
+══════════════════════════════════════════════════════════ */
+main{padding-top:60px;min-height:100vh;}
+.page{
+  display:none;padding:28px 32px;
+  max-width:1340px;margin:0 auto;
+  animation:pageIn .35s ease both;
 }
-.eyebrow{
-  display:inline-flex;align-items:center;gap:7px;
-  font-family:'Geist Mono',monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--teal);background:var(--teal-light);
-  border:1px solid rgba(13,115,119,.2);border-radius:100px;
-  padding:4px 12px;margin-bottom:18px;
-}
-.eyebrow::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--teal);}
-.hero h1{
-  font-family:'Instrument Serif',serif;
-  font-size:clamp(2.2rem,4.5vw,3.4rem);
-  line-height:1.08;letter-spacing:-.03em;
-  margin-bottom:14px;
-}
-.hero h1 em{font-style:italic;color:var(--teal);}
-.hero p{font-size:.93rem;color:var(--ink-2);max-width:500px;line-height:1.7;}
+.page.active{display:block;}
+@keyframes pageIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+.page-hdr{margin-bottom:28px;}
+.page-hdr h1{font-size:30px;font-weight:700;letter-spacing:-.8px;color:var(--fg);}
+.page-hdr p{color:var(--fg2);font-size:13.5px;margin-top:7px;line-height:1.65;max-width:600px;}
 
-/* ── CONTENT WRAPPER ───────────────────────────────────────── */
-.wrap{max-width:900px;margin:0 auto;padding:0 40px 100px;}
-
-/* ══════════════════════════════════════════════════════════ */
-/*  DIAGRAM VIEW                                             */
-/* ══════════════════════════════════════════════════════════ */
-.diagram-frame{
+/* ══════════════════════════════════════════════════════════
+   CARDS
+══════════════════════════════════════════════════════════ */
+.card{
   background:var(--surface);
-  border:1px solid var(--rule);
-  border-radius:var(--r-xl);
-  box-shadow:var(--sh-lg);
-  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:var(--radius);padding:22px;
+  transition:border-color var(--t),box-shadow var(--t);
 }
-.diagram-topbar{
-  padding:14px 24px;
-  border-bottom:1px solid var(--rule);
-  background:var(--rule-soft);
-  display:flex;align-items:center;justify-content:space-between;
+.card:hover{border-color:var(--border2);}
+.card-hdr{
+  font-size:11px;font-weight:600;color:var(--fg2);
+  text-transform:uppercase;letter-spacing:1.2px;
+  margin-bottom:16px;display:flex;align-items:center;gap:7px;
 }
-.traffic{display:flex;gap:6px;}
-.dot{width:11px;height:11px;border-radius:50%;}
-.dr{background:#ff5f57;}.dy{background:#febc2e;}.dg{background:#28c840;}
-.diagram-label{font-family:'Geist Mono',monospace;font-size:.72rem;color:var(--ink-3);}
-.diagram-body{
-  padding:48px 40px;
-  display:flex;flex-direction:column;align-items:center;gap:32px;
-  min-height:460px;
-}
-.svg-container{
-  width:100%;max-width:720px;
-  border:1px solid var(--rule);border-radius:var(--r-lg);
-  background:var(--rule-soft);overflow:hidden;
-  cursor:zoom-in;transition:transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
-}
-.svg-container:hover{transform:scale(1.015);box-shadow:var(--sh-lg);}
-.svg-container img,.svg-container object{width:100%;display:block;min-height:300px;}
+.card-hdr i{color:var(--accent);font-size:12px;}
 
-/* Inline ER SVG (shown when no file) */
-.er-svg{width:100%;display:block;}
-
-.diagram-caption{text-align:center;}
-.diagram-caption h3{
-  font-family:'Instrument Serif',serif;font-size:1.15rem;letter-spacing:-.01em;
-  margin-bottom:6px;
-}
-.diagram-caption p{font-size:.84rem;color:var(--ink-2);line-height:1.65;}
-
-.schema-legend{
-  display:flex;gap:20px;flex-wrap:wrap;justify-content:center;
-  padding:4px 0;
-}
-.legend-item{display:flex;align-items:center;gap:7px;font-size:.74rem;color:var(--ink-2);}
-.legend-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0;}
-
-/* ══════════════════════════════════════════════════════════ */
-/*  SQL VIEW                                                 */
-/* ══════════════════════════════════════════════════════════ */
-.editor-shell{
-  background:var(--surface);
-  border:1px solid var(--rule);
-  border-radius:var(--r-xl);
-  box-shadow:var(--sh-lg);
-  overflow:hidden;
-}
-.editor-bar{
-  background:var(--code-bg);
-  padding:13px 20px;
-  display:flex;align-items:center;justify-content:space-between;
-  border-bottom:1px solid #1e2430;
-}
-.editor-bar-left{display:flex;align-items:center;gap:10px;}
-.editor-filename{font-family:'Geist Mono',monospace;font-size:.72rem;color:#6b7683;}
-.editor-actions{display:flex;gap:8px;}
-
+/* ══════════════════════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════════════════════ */
 .btn{
-  font-family:'Geist',sans-serif;font-size:.78rem;font-weight:500;
-  padding:6px 14px;border-radius:100px;border:1px solid transparent;
-  cursor:pointer;transition:all var(--t) var(--ease);
-  display:inline-flex;align-items:center;gap:5px;
-  letter-spacing:.01em;
+  padding:9px 16px;border-radius:9px;font-size:12.5px;font-weight:600;
+  cursor:pointer;border:none;font-family:var(--font);
+  display:inline-flex;align-items:center;gap:6px;
+  transition:all var(--t);
 }
-.btn-outline{background:transparent;color:#6b7683;border-color:#2d3340;}
-.btn-outline:hover{color:#fff;border-color:#4a5568;}
-.btn-teal{background:var(--teal);color:#fff;border-color:var(--teal);}
-.btn-teal:hover{background:#0a5f63;box-shadow:0 3px 12px rgba(13,115,119,.35);}
-
-.code-scroll{overflow-x:auto;}
-.code-body{
-  background:var(--code-bg);
-  font-family:'Geist Mono',monospace;font-size:.78rem;line-height:1.85;
-  padding:28px 32px;color:var(--code-fg);
-  white-space:pre;
+.btn-primary{
+  background:var(--accent);color:#fff;
+  box-shadow:0 3px 14px rgba(59,130,246,.25);
 }
-/* SQL tokens */
-.kw {color:#79c0ff;font-weight:500;}
-.ty {color:#7ee787;}
-.cm {color:#484f58;font-style:italic;}
-.tb {color:#ffa657;}
-.co {color:#d2a8ff;}
-.nu {color:#79c0ff;}
-.op {color:#ff7b72;}
-.st {color:#a5d6ff;}
-
-.exec-bar{height:2px;background:transparent;transition:all .3s;}
-.exec-bar.running{background:linear-gradient(90deg,var(--teal),#14b8a6);animation:prog .7s ease both;}
-@keyframes prog{from{transform:scaleX(0);transform-origin:left;}to{transform:scaleX(1);}}
-
-.result-area{
-  border-top:1px solid var(--rule);
-  padding:20px 28px;
-  display:flex;align-items:flex-start;gap:14px;
-  min-height:64px;
+.btn-primary:hover{filter:brightness(1.12);transform:translateY(-1px);}
+.btn-primary:active{transform:none;}
+.btn-ghost{
+  background:var(--surface2);color:var(--fg2);
+  border:1px solid var(--border);
 }
-.result-status{
-  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+.btn-ghost:hover{color:var(--fg);border-color:var(--border2);}
+.btn-danger{background:rgba(239,68,68,.1);color:var(--accent-r);border:1px solid rgba(239,68,68,.2);}
+.btn-danger:hover{background:rgba(239,68,68,.2);}
+
+/* ══════════════════════════════════════════════════════════
+   BADGES
+══════════════════════════════════════════════════════════ */
+.badge{display:inline-flex;padding:3px 8px;border-radius:5px;font-size:10.5px;font-weight:700;}
+.b-blue  {background:rgba(59,130,246,.12);color:#60a5fa;}
+.b-green {background:rgba(34,197,94,.12);color:#4ade80;}
+.b-amber {background:rgba(245,158,11,.12);color:#fbbf24;}
+.b-red   {background:rgba(239,68,68,.12);color:#f87171;}
+.b-purple{background:rgba(167,139,250,.12);color:#c4b5fd;}
+.b-cyan  {background:rgba(6,182,212,.12);color:#22d3ee;}
+
+/* ══════════════════════════════════════════════════════════
+   TABLE
+══════════════════════════════════════════════════════════ */
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+.tbl th{
+  text-align:left;padding:9px 12px;
+  font-size:10px;font-weight:700;color:var(--fg3);
+  text-transform:uppercase;letter-spacing:1px;
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--fg);vertical-align:middle;}
+.tbl tbody tr:hover{background:rgba(255,255,255,.02);}
+.tbl tbody tr:last-child td{border-bottom:none;}
+
+/* ══════════════════════════════════════════════════════════
+   FORM
+══════════════════════════════════════════════════════════ */
+.form-label{display:block;font-size:11px;font-weight:700;color:var(--fg2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;}
+.form-input,.form-select{
+  width:100%;padding:9px 12px;border-radius:9px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--fg);font-size:13.5px;font-family:var(--font);
+  outline:none;transition:all var(--t);
+}
+.form-input:focus,.form-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.12);}
+.form-select option{background:#181e2e;}
+
+/* ══════════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════════ */
+#toasts{position:fixed;top:72px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:7px;}
+.toast{
+  padding:11px 16px;border-radius:10px;
+  background:var(--surface2);border:1px solid var(--border2);
+  backdrop-filter:blur(16px);font-size:12.5px;font-weight:500;
+  display:flex;align-items:center;gap:9px;min-width:240px;
+  box-shadow:var(--shadow);animation:tIn .3s ease;
+}
+.toast.tout{animation:tOut .25s ease forwards;}
+@keyframes tIn{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+@keyframes tOut{to{opacity:0;transform:translateX(30px);}}
+.toast i{font-size:14px;}
+.toast.ts i{color:var(--accent-g);}
+.toast.te i{color:var(--accent-r);}
+.toast.ti i{color:var(--accent);}
+
+/* ══════════════════════════════════════════════════════════
+   MODAL
+══════════════════════════════════════════════════════════ */
+.moverlay{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(5px);
+  display:none;align-items:center;justify-content:center;
+}
+.moverlay.show{display:flex;}
+.modal{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:16px;padding:26px;width:92%;max-width:480px;
+  box-shadow:var(--shadow);animation:mIn .3s ease;
+}
+@keyframes mIn{from{opacity:0;transform:scale(.94)translateY(16px);}to{opacity:1;transform:none;}}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.modal-head h3{font-size:16px;font-weight:700;}
+.modal-close{
+  width:30px;height:30px;border-radius:7px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--fg2);cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+.modal-close:hover{background:rgba(239,68,68,.1);color:var(--accent-r);}
+
+/* ══════════════════════════════════════════════════════════
+   CODE BLOCK
+══════════════════════════════════════════════════════════ */
+.code{
+  background:rgba(0,0,0,.4);border:1px solid var(--border);
+  border-radius:9px;padding:14px;overflow-x:auto;
+  font-family:var(--mono);font-size:11.5px;line-height:1.8;
+  color:#94a3b8;
+}
+.kw {color:#7dd3fc;}
+.tp {color:#86efac;}
+.fn {color:#fcd34d;}
+.st {color:#f9a8d4;}
+.cm {color:#475569;font-style:italic;}
+.num{color:#fdba74;}
+
+/* ══════════════════════════════════════════════════════════
+   DYNAMIC MODEL
+══════════════════════════════════════════════════════════ */
+.flow-wrap{display:grid;grid-template-columns:1.8fr 1fr;gap:22px;align-items:start;}
+.flow-list{display:flex;flex-direction:column;gap:0;}
+.flow-item{display:flex;gap:14px;cursor:pointer;}
+.flow-spine{display:flex;flex-direction:column;align-items:center;min-width:40px;}
+.flow-dot{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--surface2);border:2px solid var(--border2);
   display:flex;align-items:center;justify-content:center;
-  font-size:.85rem;margin-top:1px;
+  font-size:12px;font-weight:700;color:var(--fg2);
+  transition:all .35s;flex-shrink:0;z-index:2;
 }
-.status-idle{background:#f0fdf4;color:var(--teal);}
-.status-run {background:var(--teal-light);color:var(--teal);}
-.status-ok  {background:#f0fdf4;color:#059669;}
-.result-msg{font-size:.83rem;color:var(--ink-2);line-height:1.6;}
-.result-msg strong{color:var(--ink);font-weight:600;}
-
-.result-table{width:100%;border-collapse:collapse;font-family:'Geist Mono',monospace;font-size:.75rem;margin-top:16px;}
-.result-table th{padding:9px 14px;text-align:left;background:var(--rule-soft);color:var(--ink-2);font-weight:500;border-bottom:1px solid var(--rule);}
-.result-table td{padding:8px 14px;border-bottom:1px solid var(--rule-soft);color:var(--ink);}
-.result-table tr:last-child td{border-bottom:none;}
-.result-table tr:hover td{background:var(--teal-light);}
-#result-table-wrap{display:none;padding:0 0 12px;}
-
-/* ══════════════════════════════════════════════════════════ */
-/*  DEMO VIEW                                                */
-/* ══════════════════════════════════════════════════════════ */
-.demo-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
-@media(max-width:660px){.demo-layout{grid-template-columns:1fr;}}
-
-.panel{
-  background:var(--surface);border:1px solid var(--rule);
-  border-radius:var(--r-lg);box-shadow:var(--sh-sm);
-  overflow:hidden;
+.flow-item.on .flow-dot{
+  background:var(--accent);border-color:var(--accent);
+  color:#fff;box-shadow:0 0 20px rgba(59,130,246,.35);
+  transform:scale(1.08);
 }
-.panel-head{
-  padding:14px 20px;border-bottom:1px solid var(--rule);
-  background:var(--rule-soft);
-  display:flex;align-items:center;justify-content:space-between;
+.flow-line{width:2px;flex:1;min-height:28px;background:var(--border);transition:background .35s;}
+.flow-item.on .flow-line{background:rgba(59,130,246,.4);}
+.flow-card{
+  flex:1;padding:14px 16px;margin-bottom:6px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  transition:all var(--t);
 }
-.panel-title{font-size:.8rem;font-weight:600;letter-spacing:.02em;color:var(--ink);}
-.panel-subtitle{font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--ink-3);}
-.panel-body{padding:16px;}
+.flow-item.on .flow-card{border-color:rgba(59,130,246,.3);box-shadow:var(--glow-b);}
+.flow-card h4{font-size:13.5px;font-weight:700;margin-bottom:4px;}
+.flow-card p{font-size:12px;color:var(--fg2);line-height:1.6;}
+.flow-tags{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;}
+.flow-detail-box{
+  position:sticky;top:80px;
+}
+.sql-box{
+  background:rgba(0,0,0,.35);border:1px solid var(--border);
+  border-radius:9px;padding:12px;margin-top:12px;
+  font-family:var(--mono);font-size:11px;line-height:1.75;
+  color:#60a5fa;white-space:pre-wrap;word-break:break-all;
+}
+.flow-arrow{
+  display:flex;align-items:center;justify-content:center;
+  padding:4px 0;color:var(--fg3);font-size:12px;
+}
 
-/* product cards */
-.product-list{display:flex;flex-direction:column;gap:10px;}
-.product-row{
-  border:1px solid var(--rule);border-radius:var(--r);
-  padding:12px 14px;
-  display:flex;align-items:center;gap:12px;
-  cursor:pointer;transition:all var(--t) var(--ease);
+/* ══════════════════════════════════════════════════════════
+   STATIC MODEL — ER Diagram
+══════════════════════════════════════════════════════════ */
+.er-outer{
+  width:100%;overflow-x:auto;padding:28px 24px 32px;
+  background:rgba(0,0,0,.18);border-radius:0 0 12px 12px;
+}
+.er-stage{
   position:relative;
+  width:1060px;height:760px;
+  margin:0 auto;
 }
-.product-row:hover{border-color:var(--teal);background:var(--teal-light);}
-.product-row.selected{border-color:var(--teal);background:var(--teal-light);box-shadow:0 0 0 2px var(--teal-glow);}
-.p-emoji{font-size:1.4rem;width:36px;text-align:center;flex-shrink:0;}
-.p-info{flex:1;min-width:0;}
-.p-name{font-size:.82rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.p-meta{font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--ink-3);margin-top:2px;}
-.p-price{font-family:'Geist Mono',monospace;font-size:.85rem;font-weight:500;color:var(--teal);flex-shrink:0;}
-.stock-tag{
-  font-family:'Geist Mono',monospace;font-size:.62rem;
-  padding:2px 7px;border-radius:100px;flex-shrink:0;
+.er-svg{
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;overflow:visible;
+  z-index:1;
 }
-.s-ok {background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;}
-.s-low{background:var(--amber-light);color:var(--amber);border:1px solid #fde68a;}
-.s-out{background:var(--rose-light);color:var(--rose);border:1px solid #fecaca;}
-
-/* order form */
-.form-group{margin-bottom:14px;}
-.form-label{font-size:.75rem;font-weight:600;color:var(--ink-2);display:block;margin-bottom:5px;letter-spacing:.02em;}
-.form-control{
-  width:100%;padding:9px 12px;
-  font-family:'Geist',sans-serif;font-size:.82rem;
-  background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);
-  color:var(--ink);transition:border-color var(--t) var(--ease);outline:none;
+/* SVG path transitions for hover */
+.er-svg .er-path{
+  transition:stroke-opacity .25s, stroke-width .25s, stroke .25s;
+  stroke-linecap:round;
+  stroke-linejoin:round;
 }
-.form-control:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-glow);}
-.form-control:disabled{opacity:.5;cursor:not-allowed;}
-.qty-row{display:flex;gap:8px;align-items:center;}
-.qty-btn{
-  width:32px;height:32px;border-radius:var(--r-sm);border:1px solid var(--rule);
-  background:var(--surface);color:var(--ink);font-size:1rem;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all var(--t) var(--ease);flex-shrink:0;
-}
-.qty-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal);}
-#qty-display{
-  flex:1;text-align:center;padding:7px;
-  font-family:'Geist Mono',monospace;font-size:.88rem;font-weight:500;
-  background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);
-}
-
-.selected-info{
-  background:var(--teal-light);border:1px solid rgba(13,115,119,.2);
-  border-radius:var(--r);padding:12px;margin-bottom:14px;
-  font-size:.78rem;color:var(--teal);line-height:1.6;
-}
-.selected-info strong{font-weight:600;}
-.no-selection{
-  background:var(--rule-soft);border:1px dashed var(--rule);
-  border-radius:var(--r);padding:14px;text-align:center;
-  font-size:.78rem;color:var(--ink-3);margin-bottom:14px;
-}
-
-.btn-register{
-  width:100%;padding:11px;
-  font-family:'Geist',sans-serif;font-size:.83rem;font-weight:600;
-  background:var(--teal);color:#fff;border:none;border-radius:var(--r);
-  cursor:pointer;transition:all var(--t) var(--ease);
-  display:flex;align-items:center;justify-content:center;gap:8px;
-}
-.btn-register:hover:not(:disabled){background:#0a5f63;box-shadow:0 4px 16px rgba(13,115,119,.3);}
-.btn-register:disabled{background:var(--rule);color:var(--ink-3);cursor:not-allowed;}
-
-/* transaction log */
-.log-wrap{max-width:900px;margin:0 auto;padding:0 40px 100px;}
-.log-title{font-family:'Instrument Serif',serif;font-size:1.05rem;letter-spacing:-.01em;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
-.log-count{font-family:'Geist Mono',monospace;font-size:.65rem;background:var(--teal-light);color:var(--teal);padding:2px 8px;border-radius:100px;}
-.log-empty{
-  background:var(--surface);border:1px dashed var(--rule);border-radius:var(--r-lg);
-  padding:40px;text-align:center;color:var(--ink-3);font-size:.83rem;
-}
-.log-list{display:flex;flex-direction:column;gap:10px;}
-.log-entry{
-  background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);
-  padding:18px 22px;box-shadow:var(--sh-sm);
-  animation:logIn .3s var(--ease) both;
-}
-@keyframes logIn{from{opacity:0;transform:translateX(-12px);}to{opacity:1;transform:translateX(0);}}
-.log-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-.log-badge{
-  background:var(--teal);color:#fff;
-  font-family:'Geist Mono',monospace;font-size:.65rem;font-weight:500;
-  padding:3px 10px;border-radius:100px;
-}
-.log-time{font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--ink-3);}
-.log-body{font-family:'Geist Mono',monospace;font-size:.73rem;color:var(--ink);line-height:1.7;}
-.log-row{display:flex;gap:8px;}
-.log-key{color:var(--ink-3);width:120px;flex-shrink:0;}
-.log-val{color:var(--teal);font-weight:500;}
-.log-table{color:var(--amber);font-weight:500;}
-.log-insert{color:#22c55e;font-weight:500;}
-
-/* ══════════════════════════════════════════════════════════ */
-/*  FLOW FOOTER                                              */
-/* ══════════════════════════════════════════════════════════ */
-footer{
-  border-top:1px solid var(--rule);
+.er-node{
+  position:absolute;
   background:var(--surface);
-  padding:80px 40px 72px;
-  text-align:center;
+  border:1.5px solid var(--border2);
+  border-radius:10px;
+  width:182px;
+  transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease, opacity .2s ease;
+  cursor:pointer;
+  box-shadow:0 2px 14px rgba(0,0,0,.4);
+  z-index:2;
 }
-footer h2{
-  font-family:'Instrument Serif',serif;
-  font-size:clamp(1.6rem,3vw,2.4rem);letter-spacing:-.03em;
+.er-node:hover{ z-index:20; transform:translateY(-3px); }
+.er-node.er-active{ z-index:20; transform:translateY(-3px); opacity:1 !important; }
+.er-node.er-faded{ opacity:.22; transform:none; }
+.er-node-head{
+  padding:9px 12px;
+  border-radius:9px 9px 0 0;
+  border-bottom:1px solid var(--border2);
+  font-size:10.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:1px;
+  display:flex;align-items:center;gap:6px;
+}
+.er-node-head-dot{
+  width:7px;height:7px;border-radius:50%;flex-shrink:0;
+}
+.er-col{
+  padding:4.5px 12px;
+  font-size:10.5px;color:var(--fg2);
+  display:flex;align-items:center;gap:5px;
+  border-bottom:1px solid rgba(255,255,255,.028);
+  white-space:nowrap;
+}
+.er-col:last-child{border-bottom:none;}
+.er-col .tag{
+  font-size:8px;font-weight:800;letter-spacing:.4px;
+  padding:1px 4px;border-radius:3px;flex-shrink:0;
+  line-height:1.5;
+}
+.pk-tag{background:rgba(245,158,11,.18);color:#fbbf24;}
+.fk-tag{background:rgba(167,139,250,.18);color:#c4b5fd;}
+.col-name{flex:1;overflow:hidden;text-overflow:ellipsis;}
+.col-type{font-size:9px;color:var(--fg3);margin-left:auto;padding-left:4px;flex-shrink:0;}
+/* Legend bar */
+.er-legend-bar{
+  display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+  padding:10px 18px;border-top:1px solid var(--border);
+  font-size:11.5px;color:var(--fg2);
+}
+.er-legend-bar span{display:flex;align-items:center;gap:7px;}
+.er-leg-line{display:inline-block;width:28px;height:2px;border-radius:2px;flex-shrink:0;}
+.er-leg-line-main{background:linear-gradient(90deg,#3b82f6,#22c55e);}
+.er-leg-line-sec{background:rgba(167,139,250,.55);height:1.5px;border-radius:2px;display:inline-block;width:28px;
+  background-image:repeating-linear-gradient(90deg,#a78bfa 0,#a78bfa 5px,transparent 5px,transparent 9px);}
+.er-leg-pk{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;background:rgba(245,158,11,.18);color:#fbbf24;}
+.er-leg-fk{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;background:rgba(167,139,250,.18);color:#c4b5fd;}
+/* Tooltip */
+.er-tooltip{
+  position:absolute;z-index:100;pointer-events:none;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:8px;padding:8px 12px;font-size:11px;
+  color:var(--fg);box-shadow:0 4px 20px rgba(0,0,0,.5);
+  white-space:nowrap;opacity:0;transition:opacity .15s;
+  max-width:220px;white-space:normal;line-height:1.5;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SQL PLAYGROUND
+══════════════════════════════════════════════════════════ */
+.sql-editor-wrap{
+  background:rgba(0,0,0,.3);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;
+}
+.sql-top{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.sql-top span{font-size:11.5px;font-weight:600;color:var(--fg2);display:flex;align-items:center;gap:6px;}
+.sql-textarea{
+  width:100%;min-height:115px;padding:14px;
+  background:transparent;border:none;
+  color:#60a5fa;font-family:var(--mono);font-size:12.5px;line-height:1.75;
+  resize:vertical;outline:none;
+}
+.sql-res-tabs{display:flex;gap:3px;margin-bottom:10px;}
+.sql-tab{
+  padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;
+  cursor:pointer;border:none;background:var(--surface2);
+  color:var(--fg2);transition:all .2s;font-family:var(--font);
+}
+.sql-tab.active{background:var(--accent);color:#fff;}
+.qbtn{
+  padding:8px 12px;border-radius:7px;font-size:11px;font-weight:600;
+  cursor:pointer;border:1px solid var(--border);background:var(--surface2);
+  color:var(--fg2);transition:all var(--t);font-family:var(--font);
+  text-align:left;display:flex;align-items:center;gap:7px;
+  width:100%;margin-bottom:5px;
+}
+.qbtn:hover{border-color:var(--accent);color:var(--fg);}
+.qbtn i{color:var(--accent);font-size:10px;flex-shrink:0;}
+.hint{font-size:10.5px;color:var(--fg3);margin-top:8px;font-family:var(--mono);}
+
+/* ══════════════════════════════════════════════════════════
+   STORE
+══════════════════════════════════════════════════════════ */
+.store-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;}
+.prod-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:14px;cursor:pointer;transition:all var(--t);
+}
+.prod-card:hover{border-color:rgba(59,130,246,.3);transform:translateY(-3px);box-shadow:var(--glow-b);}
+.prod-card.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(59,130,246,.2);}
+.prod-name{font-size:12.5px;font-weight:600;margin-bottom:3px;}
+.prod-desc{font-size:10.5px;color:var(--fg2);margin-bottom:7px;line-height:1.4;}
+.prod-price{font-size:16px;font-weight:700;color:var(--accent-g);}
+.prod-stock{font-size:10.5px;color:var(--fg2);margin-top:5px;display:flex;align-items:center;gap:4px;}
+.sdot{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.sdot-ok{background:var(--accent-g);}
+.sdot-lo{background:var(--accent-r);}
+.cart-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:9px 0;border-bottom:1px solid var(--border);
+}
+.cart-row:last-child{border-bottom:none;}
+.ops-log{
+  font-family:var(--mono);font-size:10.5px;line-height:1.9;
+  background:rgba(0,0,0,.3);border-radius:8px;padding:12px;
+  max-height:220px;overflow-y:auto;
+}
+
+/* ══════════════════════════════════════════════════════════
+   ADMIN
+══════════════════════════════════════════════════════════ */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+.metric{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;
+  transition:all var(--t);
+}
+.metric:hover{transform:translateY(-2px);border-color:var(--border2);}
+.metric::after{
+  content:'';position:absolute;top:-20px;right:-20px;
+  width:70px;height:70px;border-radius:50%;opacity:.08;filter:blur(30px);
+}
+.metric:nth-child(1)::after{background:var(--accent);}
+.metric:nth-child(2)::after{background:var(--accent-g);}
+.metric:nth-child(3)::after{background:var(--accent-p);}
+.metric:nth-child(4)::after{background:var(--accent-a);}
+.metric-lbl{font-size:10.5px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.metric-val{font-size:28px;font-weight:700;letter-spacing:-1px;}
+.metric-sub{font-size:10.5px;color:var(--fg3);margin-top:5px;display:flex;align-items:center;gap:4px;}
+.charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:20px;}
+.chart-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:18px;
+}
+.chart-box canvas{max-height:250px;}
+.admin2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.srch{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 12px;border-radius:8px;
+  background:var(--surface2);border:1px solid var(--border);
   margin-bottom:12px;
 }
-footer>p{font-size:.87rem;color:var(--ink-2);max-width:440px;margin:0 auto 52px;line-height:1.7;}
-.flow-row{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;max-width:720px;margin:0 auto;}
-.flow-card{
-  background:var(--paper);border:1px solid var(--rule);border-radius:var(--r-lg);
-  padding:26px 28px;width:196px;
-  transition:all .25s var(--ease);cursor:pointer;
-}
-.flow-card:hover{border-color:var(--teal);transform:translateY(-5px);box-shadow:var(--sh-md);}
-.flow-num{font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--ink-3);margin-bottom:10px;}
-.flow-icon{font-size:1.8rem;margin-bottom:10px;}
-.flow-name{font-family:'Instrument Serif',serif;font-size:1rem;letter-spacing:-.01em;margin-bottom:5px;}
-.flow-desc{font-size:.73rem;color:var(--ink-2);line-height:1.5;}
-.flow-arrow{font-size:1.2rem;color:var(--ink-3);padding:0 10px;}
-.footer-note{margin-top:44px;font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--ink-3);}
+.srch:focus-within{border-color:var(--accent);}
+.srch i{color:var(--fg3);font-size:11px;}
+.srch input{flex:1;background:transparent;border:none;outline:none;color:var(--fg);font-size:12.5px;font-family:var(--font);}
+.scroll-table{max-height:260px;overflow-y:auto;}
 
-/* ── TOAST ─────────────────────────────────────────────────── */
-#toasts{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:999;}
-.toast{
-  background:var(--ink);color:#fff;
-  font-size:.78rem;font-weight:500;
-  padding:11px 18px;border-radius:var(--r);box-shadow:var(--sh-lg);
-  animation:tin .25s var(--ease),tout .25s var(--ease) 2.5s both;
-  display:flex;align-items:center;gap:8px;
+/* ══════════════════════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════════════════════ */
+footer{
+  text-align:center;padding:20px 16px;
+  font-size:11.5px;color:var(--fg3);
+  border-top:1px solid var(--border);
+  max-width:1340px;margin:0 auto;
 }
-.toast.ok{background:var(--teal);}
-@keyframes tin {from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-@keyframes tout{to{opacity:0;transform:translateY(10px);}}
 
-/* ── UTILS ─────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   SCROLLBAR
+══════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar{width:5px;height:5px;}
-::-webkit-scrollbar-thumb{background:var(--rule);border-radius:3px;}
-@media(max-width:640px){
-  header{padding:0 16px;}
-  .hero,.wrap,.log-wrap{padding-left:16px;padding-right:16px;}
-  .flow-arrow{display:none;}
-  .pill span{display:none;}
-}
-.diagram-caption,
-.schema-legend,
-.wrap p[style*="Geist Mono"] {
-  display: none !important;
-}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--fg3);border-radius:3px;}
 
+/* ══ RESPONSIVE ══ */
+@media(max-width:1024px){
+  .metrics-grid{grid-template-columns:repeat(2,1fr);}
+  .charts-grid{grid-template-columns:1fr;}
+  .admin2{grid-template-columns:1fr;}
+  .store-grid{grid-template-columns:1fr;}
+  .flow-wrap{grid-template-columns:1fr;}
+}
+@media(max-width:768px){
+  .nav-links{display:none;}
+  .metrics-grid{grid-template-columns:1fr 1fr;}
+  .page{padding:18px 14px;}
+}
 </style>
 </head>
 <body>
 
-<!-- ── HEADER ──────────────────────────────────────────────── -->
-<header>
-  <div class="brand">
-    <div class="brand-icon">db</div>
-    empresa<em style="font-family:'Instrument Serif',serif;font-style:italic;">DB</em>
-  </div>
-
-  <nav class="nav-pills">
-    <button class="pill active" onclick="show('diagram',this)">
-      <span>⬡</span> Diagrama
+<!-- ═══ LANDING ═══ -->
+<div id="landing">
+  <div class="land-bg"></div>
+  <div class="land-grid"></div>
+  <div class="land-content">
+    <div class="land-badge"><i class="fas fa-database"></i> Academic Portfolio Project</div>
+    <h1 class="land-title">Data<span>Forge</span></h1>
+    <p class="land-sub">An interactive platform demonstrating a complete relational database schema — from entity-relationship modeling to live transaction simulation.</p>
+    <button class="land-btn" onclick="enterApp()">
+      <i class="fas fa-play"></i> Launch Application
     </button>
-    <button class="pill" onclick="show('sql',this)">
-      <span>{ }</span> SQL
-    </button>
-    <button class="pill" onclick="show('demo',this)">
-      <span>▷</span> Demo
-    </button>
-  </nav>
-
-  <span class="header-tag">PostgreSQL · 4 tablas</span>
-</header>
-
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!--  VIEW 1 — DIAGRAM                                          -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<div id="view-diagram" class="view active">
-  <div class="hero">
-    <div class="eyebrow">Modelo Entidad–Relación</div>
-    <h1>Diagrama de <em>Base de Datos</em></h1>
-    <p>Estructura relacional del sistema empresarial: proveedores, productos, ventas y detalle de ventas.</p>
-  </div>
-
-  <div class="wrap">
-    <div class="diagram-frame">
-      <div class="diagram-topbar">
-        <div class="traffic"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
-        <span class="diagram-label">diagrama.svg — empresa database</span>
-        <span style="font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--ink-3);">4 entidades · 3 relaciones</span>
-      </div>
-
-      <div class="diagram-body">
-        <!-- ╔══════════════════════════════════════╗
-             ║  REPLACE THIS <object> WITH YOUR SVG ║
-             ║  <object data="diagrama.svg"          ║
-             ║          type="image/svg+xml"         ║
-             ║          class="svg-container">       ║
-             ║  </object>                            ║
-             ╚══════════════════════════════════════╝ -->
-
-        <!-- Inline ER diagram — rendered from schema.sql -->
-  <div class="svg-container">
-  <img src="diagrama.svg" alt="Diagrama ER">
-</div>
-             
-        <div class="diagram-caption">
-        </div>
-
-        <div class="schema-legend">
-          <div class="legend-item"><div class="legend-dot" style="background:#0d7377;"></div>proveedores</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#b45309;"></div>productos</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#334155;"></div>ventas</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#be123c;"></div>detalle_venta</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#9a9692;border:1px solid var(--rule);"></div>🔑 PK / 🔗 FK</div>
-        </div>
-      </div>
+    <div class="land-pills">
+      <div class="land-pill"><i class="fas fa-sitemap"></i> 7 Relational Tables</div>
+      <div class="land-pill"><i class="fas fa-terminal"></i> SQL Playground</div>
+      <div class="land-pill"><i class="fas fa-store"></i> Live Store Simulation</div>
+      <div class="land-pill"><i class="fas fa-chart-line"></i> Analytics Dashboard</div>
     </div>
-
-    <!-- how to use your real svg -->
-    <p style="font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--ink-3);text-align:center;margin-top:14px;">
-      Para usar tu archivo real: reemplaza el bloque &lt;svg&gt; por
-      <code style="background:var(--rule-soft);padding:1px 5px;border-radius:3px;">&lt;object data="diagrama.svg" type="image/svg+xml" class="svg-container"&gt;&lt;/object&gt;</code>
-    </p>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!--  VIEW 2 — SQL                                              -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<div id="view-sql" class="view">
-  <div class="hero">
-    <div class="eyebrow">PostgreSQL · DDL Statements</div>
-    <h1>Esquema <em>SQL</em></h1>
-    <p>Definición exacta de tablas extraída de <code style="font-family:'Geist Mono',monospace;font-size:.85em;">schema.sql</code>. Sintaxis PostgreSQL con SERIAL y claves foráneas.</p>
+<!-- ═══ LOADER ═══ -->
+<div id="loader" style="display:none;">
+  <div class="spin"></div>
+  <div class="load-txt">Initializing</div>
+</div>
+
+<!-- ═══ TOASTS ═══ -->
+<div id="toasts"></div>
+
+<!-- ═══ NAV ═══ -->
+<nav>
+  <div class="nav-brand">
+    <div class="brand-icon">D</div>
+    <span>DataForge</span>
   </div>
+  <div class="nav-links">
+    <button class="nav-link active" data-page="dynamic"><i class="fas fa-diagram-project"></i> Dynamic Model</button>
+    <button class="nav-link" data-page="static"><i class="fas fa-sitemap"></i> Static Model</button>
+    <button class="nav-link" data-page="sql"><i class="fas fa-terminal"></i> SQL Playground</button>
+    <button class="nav-link" data-page="store"><i class="fas fa-store"></i> Store Demo</button>
+    <button class="nav-link" data-page="admin"><i class="fas fa-chart-line"></i> Admin Panel</button>
+  </div>
+</nav>
 
-  <div class="wrap">
-    <div class="editor-shell">
-      <!-- toolbar -->
-      <div class="editor-bar">
-        <div class="editor-bar-left">
-          <div class="traffic"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
-          <span class="editor-filename">schema.sql — empresa</span>
-        </div>
-        <div class="editor-actions">
-          <button class="btn btn-outline" onclick="createTables()">▣ Crear tablas</button>
-          <button class="btn btn-teal"    onclick="runJoin()">▷ Ejecutar consulta</button>
-        </div>
-      </div>
+<!-- ═══ MAIN ═══ -->
+<main>
 
-      <div id="sql-progress" class="exec-bar"></div>
-
-      <!-- code -->
-      <div class="code-scroll">
-        <div class="code-body"><span class="cm">-- ─────────────────────────────────────────────────</span>
-<span class="cm">-- Base de datos: empresa</span>
-<span class="cm">-- Motor: PostgreSQL | Archivo: schema.sql</span>
-<span class="cm">-- ─────────────────────────────────────────────────</span>
-
-<span class="kw">CREATE DATABASE</span> <span class="tb">empresa</span>;
-
-
-<span class="cm">-- ── Tabla 1: proveedores ──────────────────────────</span>
-<span class="kw">CREATE TABLE</span> <span class="tb">proveedores</span> (
-  <span class="co">id_proveedor</span>      <span class="ty">SERIAL</span>       <span class="kw">PRIMARY KEY</span>,
-  <span class="co">nombre_proveedor</span>  <span class="ty">VARCHAR</span>(<span class="nu">50</span>),
-  <span class="co">telefono</span>          <span class="ty">VARCHAR</span>(<span class="nu">20</span>),
-  <span class="co">correo</span>            <span class="ty">VARCHAR</span>(<span class="nu">80</span>),
-  <span class="co">direccion</span>         <span class="ty">VARCHAR</span>(<span class="nu">80</span>)
-);
-
-
-<span class="cm">-- ── Tabla 2: productos ───────────────────────────</span>
-<span class="kw">CREATE TABLE</span> <span class="tb">productos</span> (
-  <span class="co">id_producto</span>   <span class="ty">SERIAL</span>          <span class="kw">PRIMARY KEY</span>,
-  <span class="co">nombre</span>        <span class="ty">VARCHAR</span>(<span class="nu">50</span>),
-  <span class="co">marca</span>         <span class="ty">VARCHAR</span>(<span class="nu">50</span>),
-  <span class="co">categoria</span>     <span class="ty">VARCHAR</span>(<span class="nu">50</span>),
-  <span class="co">precio</span>        <span class="ty">NUMERIC</span>(<span class="nu">10</span>,<span class="nu">2</span>),
-  <span class="co">stock</span>         <span class="ty">INT</span>,
-  <span class="co">id_proveedor</span>  <span class="ty">INT</span>,
-  <span class="kw">FOREIGN KEY</span> (<span class="co">id_proveedor</span>) <span class="kw">REFERENCES</span> <span class="tb">proveedores</span>(<span class="co">id_proveedor</span>)
-);
-
-
-<span class="cm">-- ── Tabla 3: ventas ──────────────────────────────</span>
-<span class="kw">CREATE TABLE</span> <span class="tb">ventas</span> (
-  <span class="co">id_venta</span>          <span class="ty">SERIAL</span>       <span class="kw">PRIMARY KEY</span>,
-  <span class="co">fecha</span>             <span class="ty">DATE</span>,
-  <span class="co">nombre_cliente</span>    <span class="ty">VARCHAR</span>(<span class="nu">80</span>),
-  <span class="co">documento_cliente</span> <span class="ty">VARCHAR</span>(<span class="nu">20</span>)
-);
-
-
-<span class="cm">-- ── Tabla 4: detalle_venta ───────────────────────</span>
-<span class="kw">CREATE TABLE</span> <span class="tb">detalle_venta</span> (
-  <span class="co">id_detalle</span>   <span class="ty">SERIAL</span>  <span class="kw">PRIMARY KEY</span>,
-  <span class="co">id_venta</span>     <span class="ty">INT</span>,
-  <span class="co">id_producto</span>  <span class="ty">INT</span>,
-  <span class="co">cantidad</span>     <span class="ty">INT</span>,
-  <span class="kw">FOREIGN KEY</span> (<span class="co">id_venta</span>)    <span class="kw">REFERENCES</span> <span class="tb">ventas</span>(<span class="co">id_venta</span>),
-  <span class="kw">FOREIGN KEY</span> (<span class="co">id_producto</span>) <span class="kw">REFERENCES</span> <span class="tb">productos</span>(<span class="co">id_producto</span>)
-);
-
-
-<span class="cm">-- ── Consulta JOIN: ventas con producto y proveedor ─</span>
-<span class="kw">SELECT</span>
-  <span class="co">v.id_venta</span>,
-  <span class="co">v.nombre_cliente</span>,
-  <span class="co">p.nombre</span>       <span class="kw">AS</span> <span class="st">producto</span>,
-  <span class="co">pr.nombre_proveedor</span> <span class="kw">AS</span> <span class="st">proveedor</span>,
-  <span class="co">dv.cantidad</span>
-<span class="kw">FROM</span> <span class="tb">detalle_venta</span> <span class="co">dv</span>
-<span class="kw">JOIN</span> <span class="tb">ventas</span>      <span class="co">v</span>  <span class="kw">ON</span> <span class="co">dv.id_venta</span>    <span class="op">=</span> <span class="co">v.id_venta</span>
-<span class="kw">JOIN</span> <span class="tb">productos</span>   <span class="co">p</span>  <span class="kw">ON</span> <span class="co">dv.id_producto</span> <span class="op">=</span> <span class="co">p.id_producto</span>
-<span class="kw">JOIN</span> <span class="tb">proveedores</span> <span class="co">pr</span> <span class="kw">ON</span> <span class="co">p.id_proveedor</span>  <span class="op">=</span> <span class="co">pr.id_proveedor</span>;</div>
-      </div>
-
-      <!-- result -->
-      <div class="result-area" id="result-area">
-        <div class="result-status status-idle" id="result-icon">✓</div>
-        <div class="result-msg" id="result-msg">
-          <strong>Listo</strong> — Haz clic en "Ejecutar consulta" para ver resultados del JOIN.
+<!-- ══════════ DYNAMIC MODEL ══════════ -->
+<div class="page active" id="page-dynamic">
+  <div class="page-hdr">
+    <h1>Dynamic Model</h1>
+    <p>Step-by-step visualization of data flow through the company database — from customer identification to supplier shipments replenishing stock.</p>
+  </div>
+  <div class="flow-wrap">
+    <div class="card" style="padding:0;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <span class="card-hdr" style="margin:0;"><i class="fas fa-route"></i> System Flow</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost" onclick="resetFlow()" style="font-size:11px;padding:6px 10px;"><i class="fas fa-redo"></i> Reset</button>
+          <button class="btn btn-primary" id="flow-play-btn" onclick="playFlow()" style="font-size:11px;padding:6px 10px;"><i class="fas fa-play"></i> Play All</button>
         </div>
       </div>
-      <div id="result-table-wrap">
-        <table class="result-table" id="result-table"></table>
+      <div style="padding:20px;" id="flow-steps"></div>
+    </div>
+    <div class="flow-detail-box">
+      <div class="card" id="flow-detail-card">
+        <div class="card-hdr"><i class="fas fa-info-circle"></i> Step Detail</div>
+        <div id="flow-detail-content" style="font-size:12.5px;color:var(--fg2);line-height:1.7;">
+          Click any step or press <kbd style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:10.5px;border:1px solid var(--border2);">Play All</kbd> to see the business logic and SQL behind each operation.
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <div class="card-hdr"><i class="fas fa-circle-info"></i> About This Model</div>
+        <p style="font-size:12px;color:var(--fg2);line-height:1.7;">
+          This dynamic model traces a complete business transaction cycle. Each step maps directly to one or more tables in the <strong style="color:var(--accent);">company</strong> database. Foreign key constraints guarantee referential integrity across all 7 tables.
+        </p>
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:5px;">
+          <span class="badge b-blue">customers</span><span class="badge b-blue">sales</span>
+          <span class="badge b-blue">sale_details</span><span class="badge b-blue">products</span>
+          <span class="badge b-blue">suppliers</span><span class="badge b-blue">shipments</span>
+          <span class="badge b-blue">shipment_details</span>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!--  VIEW 3 — DEMO                                             -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<div id="view-demo" class="view">
-  <div class="hero">
-    <div class="eyebrow">Simulación de aplicación</div>
-    <h1>Demo <em>Interactivo</em></h1>
-    <p>Simula el flujo real de la base de datos: selecciona un producto, registra la venta y observa cómo se insertan datos en <code style="font-family:'Geist Mono',monospace;font-size:.85em;">detalle_venta</code>.</p>
+<!-- ══════════ STATIC MODEL ══════════ -->
+<div class="page" id="page-static">
+  <div class="page-hdr">
+    <h1>Static Model — ER Diagram</h1>
+    <p>Entity-Relationship diagram of the <strong>company</strong> database. All 7 tables, columns, primary keys (PK), foreign keys (FK), and relationships shown. <em style="color:var(--fg3)">Hover a table to highlight its connections.</em></p>
   </div>
-
-  <div class="wrap">
-    <div class="demo-layout">
-
-      <!-- LEFT: product list -->
-      <div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">PRODUCTOS</span>
-          <span class="panel-subtitle">tabla: productos</span>
-        </div>
-        <div class="panel-body">
-          <div class="product-list" id="product-list"><!-- rendered by JS --></div>
-        </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span style="font-size:11.5px;font-weight:700;color:var(--fg2);">company — PostgreSQL Schema &nbsp;<span style="color:var(--fg3);font-weight:400;">· 7 tables · 7 relationships</span></span>
+      <div style="display:flex;gap:14px;font-size:11px;color:var(--fg2);align-items:center;flex-wrap:wrap;">
+        <span><span class="er-leg-pk">PK</span> &nbsp;Primary Key</span>
+        <span><span class="er-leg-fk">FK</span> &nbsp;Foreign Key</span>
+        <span><span class="er-leg-line er-leg-line-main" style="vertical-align:middle;"></span> &nbsp;Main flow</span>
+        <span><span class="er-leg-line er-leg-line-sec" style="vertical-align:middle;"></span> &nbsp;Secondary</span>
+        <span style="color:var(--fg3)">Hover to highlight</span>
       </div>
+    </div>
+    <div class="er-outer">
+      <div class="er-stage" id="er-stage">
+        <svg class="er-svg" id="er-svg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Arrow markers: one per relationship color -->
+            <marker id="arr-main" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#60a5fa"/>
+            </marker>
+            <marker id="arr-main-g" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#4ade80"/>
+            </marker>
+            <marker id="arr-sec" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#c4b5fd"/>
+            </marker>
+            <marker id="arr-sec-p" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#f472b6"/>
+            </marker>
+            <marker id="arr-sec-c" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#22d3ee"/>
+            </marker>
+            <!-- Hover-active versions (brighter) -->
+            <marker id="arr-main-hi" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#93c5fd"/>
+            </marker>
+            <marker id="arr-main-g-hi" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#86efac"/>
+            </marker>
+            <marker id="arr-sec-hi" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#ddd6fe"/>
+            </marker>
+            <marker id="arr-sec-p-hi" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#fbcfe8"/>
+            </marker>
+            <marker id="arr-sec-c-hi" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#a5f3fc"/>
+            </marker>
+          </defs>
+        </svg>
+        <div class="er-tooltip" id="er-tooltip"></div>
+        <!-- Tables injected by JS -->
+      </div>
+    </div>
+  </div>
+</div>
 
-      <!-- RIGHT: order form -->
-      <div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">REGISTRAR VENTA</span>
-          <span class="panel-subtitle">tablas: ventas · detalle_venta</span>
-        </div>
-        <div class="panel-body">
-
-          <div id="selection-box" class="no-selection">
-            ← Selecciona un producto de la lista
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">NOMBRE DEL CLIENTE</label>
-            <input class="form-control" id="f-cliente" type="text" placeholder="Ej: Juan García" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">DOCUMENTO</label>
-            <input class="form-control" id="f-doc" type="text" placeholder="Ej: 1234567890" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">CANTIDAD</label>
-            <div class="qty-row">
-              <button class="qty-btn" onclick="changeQty(-1)">−</button>
-              <div id="qty-display">1</div>
-              <button class="qty-btn" onclick="changeQty(1)">+</button>
+<!-- ══════════ SQL PLAYGROUND ══════════ -->
+<div class="page" id="page-sql">
+  <div class="page-hdr">
+    <h1>SQL Playground</h1>
+    <p>Write and execute SQL queries against the in-memory company database. Supports SELECT, JOIN, WHERE, GROUP BY, ORDER BY. Press <kbd style="background:var(--surface2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;border:1px solid var(--border2);">Enter</kbd> to run, <kbd style="background:var(--surface2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;border:1px solid var(--border2);">Shift+Enter</kbd> for new line.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+    <div>
+      <div class="card" style="padding:0;margin-bottom:14px;">
+        <div class="sql-editor-wrap">
+          <div class="sql-top">
+            <span><i class="fas fa-code"></i> Query Editor</span>
+            <div style="display:flex;gap:5px;">
+              <button class="btn btn-ghost" onclick="clearSQL()" style="font-size:10.5px;padding:5px 9px;">Clear</button>
+              <button class="btn btn-primary" onclick="executeSQL()" style="font-size:10.5px;padding:5px 9px;"><i class="fas fa-play"></i> Run</button>
             </div>
           </div>
+          <textarea class="sql-textarea" id="sql-input" placeholder="SELECT * FROM customers;" spellcheck="false">SELECT * FROM customers;</textarea>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><i class="fas fa-file-code"></i> Schema Reference</div>
+        <div class="code" id="schema-disp" style="font-size:10.5px;max-height:280px;overflow-y:auto;"></div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-hdr" style="margin:0;"><i class="fas fa-table"></i> Results</div>
+          <div class="sql-res-tabs">
+            <button class="sql-tab active" onclick="switchTab('table',this)">Table</button>
+            <button class="sql-tab" onclick="switchTab('json',this)">JSON</button>
+          </div>
+        </div>
+        <div id="sql-res-table" style="overflow-x:auto;max-height:360px;overflow-y:auto;"></div>
+        <div id="sql-res-json" style="display:none;max-height:360px;overflow-y:auto;">
+          <pre class="code" id="sql-json" style="max-height:340px;"></pre>
+        </div>
+        <div id="sql-res-empty" style="text-align:center;padding:32px;color:var(--fg3);">
+          <i class="fas fa-database" style="font-size:26px;margin-bottom:10px;display:block;"></i>
+          Execute a query to see results
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><i class="fas fa-bolt"></i> Quick Queries</div>
+        <button class="qbtn" onclick="setSQL('SELECT * FROM customers;')"><i class="fas fa-users"></i> All customers</button>
+        <button class="qbtn" onclick="setSQL('SELECT * FROM suppliers;')"><i class="fas fa-truck"></i> All suppliers</button>
+        <button class="qbtn" onclick="setSQL('SELECT * FROM products WHERE stock < 100 ORDER BY stock ASC;')"><i class="fas fa-box-open"></i> Low stock products</button>
+        <button class="qbtn" onclick="setSQL('SELECT s.sale_id, c.name AS customer, s.total, s.sale_date FROM sales s JOIN customers c ON s.customer_id = c.customer_id ORDER BY s.sale_date DESC;')"><i class="fas fa-receipt"></i> Sales with customer names</button>
+        <button class="qbtn" onclick="setSQL('SELECT p.name, p.stock, sup.name AS supplier FROM products p JOIN suppliers sup ON p.supplier_id = sup.supplier_id;')"><i class="fas fa-link"></i> Products with suppliers</button>
+        <button class="qbtn" onclick="setSQL('SELECT sd.product_id, p.name, SUM(sd.quantity) AS total_sold FROM sale_details sd JOIN products p ON sd.product_id = p.product_id GROUP BY sd.product_id, p.name ORDER BY total_sold DESC;')"><i class="fas fa-trophy"></i> Top selling products</button>
+        <button class="qbtn" onclick="setSQL('SELECT * FROM shipments;')"><i class="fas fa-shipping-fast"></i> All shipments</button>
+        <p class="hint">Tip: Enter to run, Shift+Enter for new line</p>
+      </div>
+    </div>
+  </div>
+</div>
 
-          <button class="btn-register" id="btn-register" onclick="registerSale()">
-            ▷ &nbsp;Registrar Venta
+<!-- ══════════ STORE DEMO ══════════ -->
+<div class="page" id="page-store">
+  <div class="page-hdr">
+    <h1>Store Demo</h1>
+    <p>Simulate a real sales transaction: select a customer, add products to cart, and confirm the sale. Watch the database update in real time.</p>
+  </div>
+  <div class="store-grid">
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-hdr"><i class="fas fa-user"></i> Step 1 — Select Customer</div>
+        <label class="form-label">Customer</label>
+        <select class="form-select" id="store-customer">
+          <option value="">— Choose a customer —</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><i class="fas fa-box-open"></i> Step 2 — Select Products</div>
+        <div class="prod-grid" id="store-products"></div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-hdr"><i class="fas fa-shopping-cart"></i> Step 3 — Cart</div>
+        <div id="cart-items">
+          <div style="text-align:center;padding:22px;color:var(--fg3);font-size:12.5px;">
+            <i class="fas fa-cart-plus" style="font-size:22px;margin-bottom:9px;display:block;"></i>
+            Click products to add them to cart
+          </div>
+        </div>
+        <div id="cart-summary" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+            <span style="font-size:13.5px;font-weight:700;">Total</span>
+            <span style="font-size:20px;font-weight:700;color:var(--accent-g);" id="cart-total">$0.00</span>
+          </div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="confirmSale()">
+            <i class="fas fa-check-circle"></i> Confirm Sale
           </button>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- TRANSACTION LOG -->
-  <div class="log-wrap">
-    <div class="log-title">
-      Log de transacciones
-      <span class="log-count" id="log-count">0 registros</span>
-    </div>
-    <div id="log-container">
-      <div class="log-empty" id="log-empty">
-        Las ventas registradas aparecerán aquí como sentencias INSERT simuladas.
+      <div class="card" id="sale-result-card" style="display:none;">
+        <div class="card-hdr"><i class="fas fa-database"></i> Database Operations</div>
+        <div class="ops-log" id="sale-ops"></div>
       </div>
-      <div class="log-list" id="log-list"></div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!--  FOOTER                                                    -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<footer>
-  <div class="eyebrow" style="margin-bottom:20px;">Resumen del proyecto</div>
-  <h2>De Diseño a Implementación</h2>
-  <p>Este proyecto demuestra el proceso completo: diseño relacional, implementación SQL y uso real de la base de datos.</p>
-
-  <div class="flow-row">
-    <div class="flow-card" onclick="show('diagram',null)">
-      <div class="flow-num">01 / Diagram</div>
-      <div class="flow-icon">🗂️</div>
-      <div class="flow-name">Diagrama ER</div>
-      <div class="flow-desc">Estructura relacional de la base de datos empresa.</div>
+<!-- ══════════ ADMIN ══════════ -->
+<div class="page" id="page-admin">
+  <div class="page-hdr">
+    <h1>Admin Dashboard</h1>
+    <p>Live overview of sales, inventory, customers, and suppliers. All metrics update when new sales are processed.</p>
+  </div>
+  <div class="metrics-grid">
+    <div class="metric">
+      <div class="metric-lbl">Total Sales</div>
+      <div class="metric-val" id="m-sales">—</div>
+      <div class="metric-sub" style="color:var(--accent-g);"><i class="fas fa-arrow-up"></i> Live</div>
     </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-card" onclick="show('sql',null)">
-      <div class="flow-num">02 / SQL</div>
-      <div class="flow-icon">💾</div>
-      <div class="flow-name">Esquema SQL</div>
-      <div class="flow-desc">DDL PostgreSQL exacto del archivo schema.sql.</div>
+    <div class="metric">
+      <div class="metric-lbl">Total Revenue</div>
+      <div class="metric-val" id="m-revenue">—</div>
+      <div class="metric-sub" style="color:var(--accent-a);"><i class="fas fa-arrow-up"></i> Live</div>
     </div>
-    <div class="flow-arrow">→</div>
-    <div class="flow-card" onclick="show('demo',null)">
-      <div class="flow-num">03 / Demo</div>
-      <div class="flow-icon">🛒</div>
-      <div class="flow-name">Aplicación</div>
-      <div class="flow-desc">Simulación de ventas con log de operaciones DB.</div>
+    <div class="metric">
+      <div class="metric-lbl">Customers</div>
+      <div class="metric-val" id="m-customers">—</div>
+      <div class="metric-sub" style="color:var(--accent-p);"><i class="fas fa-users"></i> Registered</div>
+    </div>
+    <div class="metric">
+      <div class="metric-lbl">Products</div>
+      <div class="metric-val" id="m-products">—</div>
+      <div class="metric-sub" style="color:var(--accent-r);"><i class="fas fa-box"></i> In Catalog</div>
     </div>
   </div>
-
-  <p class="footer-note">PostgreSQL · schema.sql · HTML · CSS · JS — sin frameworks</p>
-</footer>
-
-<div id="toasts"></div>
-
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!--  JAVASCRIPT                                                -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<script>
-/* ── TAB NAVIGATION ──────────────────────────────────────── */
-function show(name, btn) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
-  document.getElementById('view-' + name).classList.add('active');
-  if (btn) btn.classList.add('active');
-  else {
-    const map = { diagram: 0, sql: 1, demo: 2 };
-    document.querySelectorAll('.pill')[map[name]].classList.add('active');
-  }
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-/* ── SQL SECTION ─────────────────────────────────────────── */
-let sqlBusy = false;
-
-function runJoin() {
-  if (sqlBusy) return;
-  sqlBusy = true;
-
-  const prog = document.getElementById('sql-progress');
-  const icon = document.getElementById('result-icon');
-  const msg  = document.getElementById('result-msg');
-  const wrap = document.getElementById('result-table-wrap');
-
-  wrap.style.display = 'none';
-  prog.classList.add('running');
-  icon.className = 'result-status status-run';
-  icon.textContent = '⟳';
-  msg.innerHTML = '<strong>Ejecutando...</strong> — JOIN entre detalle_venta, ventas, productos, proveedores';
-
-  const rows = [
-    ['1', 'Carlos Mendoza',  'Monitor 4K',     'TechVision S.A.',   '2'],
-    ['2', 'Laura Ospina',    'Teclado mecánico','Periféricos Plus',  '1'],
-    ['3', 'Diego Ramírez',   'Mouse inalámbr.', 'TechVision S.A.',   '3'],
-    ['4', 'Ana Restrepo',    'Monitor 4K',     'TechVision S.A.',   '1'],
-  ];
-
-  setTimeout(() => {
-    prog.classList.remove('running');
-    icon.className = 'result-status status-ok';
-    icon.textContent = '✓';
-    msg.innerHTML = `<strong>Consulta exitosa</strong> — ${rows.length} filas · 5 columnas · JOIN 4 tablas`;
-
-    const tbl = document.getElementById('result-table');
-    tbl.innerHTML = `
-      <thead><tr>
-        <th>id_venta</th><th>nombre_cliente</th><th>producto</th>
-        <th>proveedor</th><th>cantidad</th>
-      </tr></thead>
-      <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
-    `;
-    wrap.style.display = 'block';
-    sqlBusy = false;
-    toast('Consulta JOIN ejecutada correctamente', 'ok');
-  }, 850);
-}
-
-function createTables() {
-  const prog = document.getElementById('sql-progress');
-  const icon = document.getElementById('result-icon');
-  const msg  = document.getElementById('result-msg');
-  const wrap = document.getElementById('result-table-wrap');
-
-  wrap.style.display = 'none';
-  prog.classList.add('running');
-  icon.className = 'result-status status-run';
-  icon.textContent = '⟳';
-  msg.innerHTML = '<strong>Creando tablas...</strong> — proveedores, productos, ventas, detalle_venta';
-
-  setTimeout(() => {
-    prog.classList.remove('running');
-    icon.className = 'result-status status-ok';
-    icon.textContent = '✓';
-    msg.innerHTML = '<strong>Tablas creadas:</strong> proveedores ✓ · productos ✓ · ventas ✓ · detalle_venta ✓ — claves foráneas aplicadas';
-    toast('4 tablas creadas en empresa DB', 'ok');
-  }, 680);
-}
-
-/* ── DEMO DATA ───────────────────────────────────────────── */
-const proveedores = [
-  { id: 1, nombre: 'TechVision S.A.',   correo: 'ventas@techvision.co' },
-  { id: 2, nombre: 'Periféricos Plus',  correo: 'info@perifericos.co'  },
-  { id: 3, nombre: 'OfiEquipos Ltda.',  correo: 'contacto@ofiequipos.co'},
-];
-
-const productos = [
-  { id: 1, nombre: 'Monitor 4K 27"',    marca: 'Samsung',  categoria: 'Pantallas',    precio: 1250000, stock: 8,  id_proveedor: 1, emoji: '🖥️' },
-  { id: 2, nombre: 'Teclado mecánico',  marca: 'Logitech', categoria: 'Periféricos',  precio:  320000, stock: 3,  id_proveedor: 2, emoji: '⌨️' },
-  { id: 3, nombre: 'Mouse inalámbrico', marca: 'HP',       categoria: 'Periféricos',  precio:   95000, stock: 12, id_proveedor: 2, emoji: '🖱️' },
-  { id: 4, nombre: 'Silla ergonómica',  marca: 'HM',       categoria: 'Mobiliario',   precio: 890000,  stock: 2,  id_proveedor: 3, emoji: '🪑' },
-  { id: 5, nombre: 'Disco SSD 1TB',     marca: 'Kingston', categoria: 'Almacenamiento',precio: 280000, stock: 0,  id_proveedor: 1, emoji: '💽' },
-];
-
-let selectedProductId = null;
-let qty = 1;
-let saleCounter = 0;
-let detailCounter = 0;
-const sales = [];
-
-function stockClass(s) {
-  if (s === 0) return 's-out';
-  if (s <= 3)  return 's-low';
-  return 's-ok';
-}
-function stockLabel(s) {
-  if (s === 0) return 'Sin stock';
-  if (s <= 3)  return s + ' unid.';
-  return s + ' en stock';
-}
-function fmtCOP(n) {
-  return '$' + n.toLocaleString('es-CO');
-}
-
-function renderProducts() {
-  const list = document.getElementById('product-list');
-  list.innerHTML = productos.map(p => `
-    <div class="product-row ${selectedProductId === p.id ? 'selected' : ''}"
-         id="prow-${p.id}"
-         onclick="selectProduct(${p.id})"
-         style="${p.stock === 0 ? 'opacity:.45;cursor:not-allowed;' : ''}">
-      <div class="p-emoji">${p.emoji}</div>
-      <div class="p-info">
-        <div class="p-name">${p.nombre}</div>
-        <div class="p-meta">${p.marca} · ${p.categoria}</div>
+  <div class="charts-grid">
+    <div class="chart-box">
+      <div class="card-hdr"><i class="fas fa-chart-area"></i> Revenue Over Time</div>
+      <canvas id="ch-time"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="card-hdr"><i class="fas fa-chart-pie"></i> Revenue by Customer</div>
+      <canvas id="ch-pie"></canvas>
+    </div>
+  </div>
+  <div class="charts-grid" style="margin-bottom:20px;">
+    <div class="chart-box">
+      <div class="card-hdr"><i class="fas fa-chart-bar"></i> Top Products by Units Sold</div>
+      <canvas id="ch-top"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="card-hdr"><i class="fas fa-warehouse"></i> Inventory Status</div>
+      <canvas id="ch-inv"></canvas>
+    </div>
+  </div>
+  <div class="admin2">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="card-hdr" style="margin:0;"><i class="fas fa-receipt"></i> Sales History</div>
+        <button class="btn btn-ghost" onclick="exportCSV()" style="font-size:10.5px;padding:5px 9px;"><i class="fas fa-download"></i> Export CSV</button>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
-        <div class="p-price">${fmtCOP(p.precio)}</div>
-        <span class="stock-tag ${stockClass(p.stock)}">${stockLabel(p.stock)}</span>
+      <div class="srch"><i class="fas fa-search"></i><input type="text" placeholder="Search sales…" oninput="filter('sales',this.value)"></div>
+      <div class="scroll-table" id="adm-sales"></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><i class="fas fa-boxes-stacked"></i> Inventory</div>
+      <div class="srch"><i class="fas fa-search"></i><input type="text" placeholder="Search products…" oninput="filter('inv',this.value)"></div>
+      <div class="scroll-table" id="adm-inv"></div>
+    </div>
+  </div>
+  <div class="admin2">
+    <div class="card">
+      <div class="card-hdr"><i class="fas fa-truck"></i> Suppliers</div>
+      <div class="srch"><i class="fas fa-search"></i><input type="text" placeholder="Search suppliers…" oninput="filter('sup',this.value)"></div>
+      <div class="scroll-table" id="adm-sup"></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><i class="fas fa-user-group"></i> Customers</div>
+      <div class="srch"><i class="fas fa-search"></i><input type="text" placeholder="Search customers…" oninput="filter('cust',this.value)"></div>
+      <div class="scroll-table" id="adm-cust"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<footer>Data Analytics Engineer — José Luis Luna Arismendiz</footer>
+
+<!-- ═══ SALE MODAL ═══ -->
+<div class="moverlay" id="sale-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Confirm Sale</h3>
+      <button class="modal-close" onclick="closeModal('sale-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="modal-content"></div>
+    <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('sale-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="processSale()"><i class="fas fa-check"></i> Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   DATABASE — based directly on schema.sql
+══════════════════════════════════════════════════════════ */
+const DB = {
+  customers: [
+    { customer_id:1, national_id:'CC-1001', name:'Alice Johnson',  email:'alice@techcorp.io',   phone:'5550101', address:'42 Oak Lane, Springfield' },
+    { customer_id:2, national_id:'CC-1002', name:'Bob Martinez',   email:'bob@designhub.co',    phone:'5550102', address:'118 Maple St, Portland' },
+    { customer_id:3, national_id:'CC-1003', name:'Carol Williams', email:'carol@dataflow.net',  phone:'5550103', address:'7 Cedar Ave, Austin' },
+    { customer_id:4, national_id:'CC-1004', name:'David Chen',     email:'david@cloudops.io',   phone:'5550104', address:'305 Pine Rd, Seattle' },
+    { customer_id:5, national_id:'CC-1005', name:'Emma Davis',     email:'emma@startuplab.com', phone:'5550105', address:'89 Birch Blvd, Denver' },
+    { customer_id:6, national_id:'CC-1006', name:'Frank Lee',      email:'frank@nexgen.dev',    phone:'5550106', address:'12 Elm Way, Boston' },
+  ],
+  suppliers: [
+    { supplier_id:1, tax_id:'NIT-2001', name:'TechSupply Co',    phone:'8002001', email:'orders@techsupply.com', address:'Industrial Park Zone A, Detroit' },
+    { supplier_id:2, tax_id:'NIT-2002', name:'Global Goods Inc', phone:'8002002', email:'info@globalgoods.com',  address:'Harbor District Bldg 7, LA' },
+    { supplier_id:3, tax_id:'NIT-2003', name:'Prime Parts Ltd',  phone:'8002003', email:'sales@primeparts.co',   address:'Logistics Center Unit 12, Chicago' },
+  ],
+  products: [
+    { product_id:1, name:'Laptop Pro 15"',     brand:'TechBrand', category:'Computers',    price:1299.99, stock:45,  supplier_id:1 },
+    { product_id:2, name:'Wireless Mouse',      brand:'ClickPro',  category:'Peripherals',  price:29.99,   stock:200, supplier_id:1 },
+    { product_id:3, name:'USB-C Hub 7-in-1',   brand:'HubMax',    category:'Accessories',  price:49.99,   stock:150, supplier_id:2 },
+    { product_id:4, name:'Mechanical Keyboard', brand:'KeyMaster', category:'Peripherals',  price:89.99,   stock:120, supplier_id:1 },
+    { product_id:5, name:'Monitor 27" 4K',      brand:'VistaHD',   category:'Displays',     price:399.99,  stock:60,  supplier_id:3 },
+    { product_id:6, name:'Webcam HD Pro',        brand:'StreamCam', category:'Accessories',  price:69.99,   stock:180, supplier_id:2 },
+    { product_id:7, name:'SSD 1TB NVMe',         brand:'FastDrive', category:'Storage',      price:109.99,  stock:90,  supplier_id:3 },
+    { product_id:8, name:'Headphones Pro',        brand:'SoundWave', category:'Audio',        price:149.99,  stock:75,  supplier_id:1 },
+  ],
+  sales: [],
+  sale_details: [],
+  shipments: [
+    { shipment_id:1, supplier_id:1, shipment_date:'2024-04-01', status:'received' },
+    { shipment_id:2, supplier_id:2, shipment_date:'2024-04-10', status:'received' },
+    { shipment_id:3, supplier_id:3, shipment_date:'2024-05-01', status:'pending'  },
+  ],
+  shipment_details: [
+    { shipment_detail_id:1, shipment_id:1, product_id:1, quantity:30  },
+    { shipment_detail_id:2, shipment_id:1, product_id:2, quantity:100 },
+    { shipment_detail_id:3, shipment_id:1, product_id:4, quantity:80  },
+    { shipment_detail_id:4, shipment_id:2, product_id:3, quantity:100 },
+    { shipment_detail_id:5, shipment_id:2, product_id:6, quantity:120 },
+    { shipment_detail_id:6, shipment_id:3, product_id:5, quantity:40  },
+    { shipment_detail_id:7, shipment_id:3, product_id:7, quantity:60  },
+  ],
+  _nextSaleId: 1,
+  _nextDetailId: 8,
+};
+
+// Generate historical sales
+(function(){
+  const months = ['2024-01','2024-02','2024-03','2024-04','2024-05','2024-06'];
+  const counts = [3,4,5,6,7,4];
+  let sid=1, did=DB._nextDetailId;
+  months.forEach((m,mi)=>{
+    for(let i=0;i<counts[mi];i++){
+      const cid=Math.ceil(Math.random()*DB.customers.length);
+      const dd=String(Math.floor(Math.random()*28)+1).padStart(2,'0');
+      const hh=String(Math.floor(Math.random()*10)+8).padStart(2,'0');
+      const mm=String(Math.floor(Math.random()*60)).padStart(2,'0');
+      const dt=`${m}-${dd}T${hh}:${mm}:00`;
+      const pids=[];
+      const n=Math.floor(Math.random()*3)+1;
+      while(pids.length<n){const p=Math.ceil(Math.random()*DB.products.length);if(!pids.includes(p))pids.push(p);}
+      let total=0;
+      pids.forEach(pid=>{
+        const pr=DB.products.find(x=>x.product_id===pid);
+        const qty=Math.floor(Math.random()*3)+1;
+        const sub=Math.round(pr.price*qty*100)/100;
+        total+=sub;
+        DB.sale_details.push({detail_id:did++,sale_id:sid,product_id:pid,quantity:qty,unit_price:pr.price});
+      });
+      DB.sales.push({sale_id:sid++,customer_id:cid,sale_date:dt,total:Math.round(total*100)/100});
+    }
+  });
+  DB._nextSaleId=sid;DB._nextDetailId=did;
+})();
+
+/* ══ Utility ══ */
+const usd=v=>'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const LOW=80;
+
+/* ══════════════════════════════════════════════════════════
+   LANDING
+══════════════════════════════════════════════════════════ */
+function enterApp(){
+  document.getElementById('landing').classList.add('exit');
+  setTimeout(()=>{
+    document.getElementById('landing').style.display='none';
+    const l=document.getElementById('loader');
+    l.style.display='flex';
+    setTimeout(()=>{ l.classList.add('hide'); setTimeout(()=>l.style.display='none',500); },1600);
+  },700);
+}
+
+/* ══════════════════════════════════════════════════════════
+   NAV
+══════════════════════════════════════════════════════════ */
+let curPage='dynamic';
+document.querySelectorAll('.nav-link').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const pg=btn.dataset.page;
+    if(pg===curPage)return;
+    curPage=pg;
+    document.querySelectorAll('.nav-link').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    const t=document.getElementById('page-'+pg);
+    t.style.animation='none';void t.offsetWidth;t.style.animation='';
+    t.classList.add('active');
+    if(pg==='admin')refreshAdmin();
+  });
+});
+
+/* ══════════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════════ */
+function toast(msg,type='s'){
+  const c=document.getElementById('toasts');
+  const icons={s:'fa-check-circle',e:'fa-exclamation-circle',i:'fa-info-circle'};
+  const el=document.createElement('div');
+  el.className=`toast t${type}`;
+  el.innerHTML=`<i class="fas ${icons[type]||icons.i}"></i><span>${msg}</span>`;
+  c.appendChild(el);
+  setTimeout(()=>{ el.classList.add('tout'); setTimeout(()=>el.remove(),260); },3000);
+}
+
+/* ══ Modal ══ */
+const openModal=id=>document.getElementById(id).classList.add('show');
+const closeModal=id=>document.getElementById(id).classList.remove('show');
+
+/* ══════════════════════════════════════════════════════════
+   DYNAMIC MODEL
+══════════════════════════════════════════════════════════ */
+const FLOW_STEPS = [
+  {
+    num:1, title:'Customer Identification',
+    desc:'A customer is retrieved from the <code>customers</code> table by <code>customer_id</code>. The system verifies the <code>national_id</code> (UNIQUE) and loads their profile.',
+    tables:['customers'],
+    sql:'SELECT * FROM customers\nWHERE customer_id = $1;',
+    detail:'The <strong>customers</strong> table stores all client data. <code>national_id</code> is UNIQUE NOT NULL, preventing duplicate registrations. <code>customer_id</code> is SERIAL (auto-increment) and used across the schema as a FK reference in <code>sales</code>.'
+  },
+  {
+    num:2, title:'Sale Header Created',
+    desc:'A new record is inserted into <code>sales</code>. It links to the customer via <code>customer_id</code> FK, records the timestamp, and initializes <code>total</code> to 0.',
+    tables:['sales'],
+    sql:"INSERT INTO sales (customer_id, sale_date, total)\nVALUES ($1, CURRENT_TIMESTAMP, 0)\nRETURNING sale_id;",
+    detail:'<strong>sales</strong> is the transaction header. <code>customer_id</code> FK → <code>customers(customer_id)</code> ensures no sale exists without a valid customer. The total starts at 0 and is updated after all line items are inserted.'
+  },
+  {
+    num:3, title:'Product Selection',
+    desc:'Available products are fetched from <code>products</code>, joined with <code>suppliers</code> to show the supplier name. Stock levels are checked before adding to cart.',
+    tables:['products','suppliers'],
+    sql:'SELECT p.*, s.name AS supplier\nFROM products p\nJOIN suppliers s ON p.supplier_id = s.supplier_id\nWHERE p.stock > 0;',
+    detail:'<strong>products</strong> holds the catalog. <code>supplier_id</code> FK → <code>suppliers(supplier_id)</code>. Each product belongs to one supplier (N:1). Stock availability is verified before allowing any quantity to be added to prevent overselling.'
+  },
+  {
+    num:4, title:'Line Items Inserted',
+    desc:'For each product selected, one row is inserted into <code>sale_details</code>. It records <code>sale_id</code>, <code>product_id</code>, <code>quantity</code>, and <code>unit_price</code>.',
+    tables:['sale_details'],
+    sql:'INSERT INTO sale_details\n  (sale_id, product_id, quantity, unit_price)\nVALUES ($1, $2, $3, $4);',
+    detail:'<strong>sale_details</strong> is the junction/bridge table resolving the N:M relationship between <code>sales</code> and <code>products</code>. The <code>unit_price</code> is captured at time-of-sale to preserve price history even if the product price later changes.'
+  },
+  {
+    num:5, title:'Sale Total Calculated',
+    desc:'The <code>sales.total</code> is updated by summing all <code>unit_price × quantity</code> entries in <code>sale_details</code> for this <code>sale_id</code>.',
+    tables:['sales','sale_details'],
+    sql:'UPDATE sales SET total = (\n  SELECT SUM(unit_price * quantity)\n  FROM sale_details\n  WHERE sale_id = $1\n) WHERE sale_id = $1;',
+    detail:'This update aggregates all line items to produce the final sale amount. The <code>total</code> is a denormalized field for query performance. It could alternatively be computed on-demand via a subquery or VIEW.'
+  },
+  {
+    num:6, title:'Inventory Decremented',
+    desc:'For each sold product, <code>products.stock</code> is decremented by the quantity sold. This keeps inventory accurate in real time.',
+    tables:['products'],
+    sql:'UPDATE products\nSET stock = stock - $1\nWHERE product_id = $2\n  AND stock >= $1;',
+    detail:'The <code>AND stock >= $1</code> guard prevents stock from going negative (a partial substitute for a CHECK constraint). In production, a <code>CHECK (stock >= 0)</code> constraint would provide an additional safety layer enforced at the database level.'
+  },
+  {
+    num:7, title:'Shipment from Supplier',
+    desc:'When stock runs low, a <code>shipment</code> is created referencing the <code>supplier_id</code>. Each incoming product and quantity is recorded in <code>shipment_details</code>.',
+    tables:['shipments','shipment_details','suppliers'],
+    sql:"INSERT INTO shipments (supplier_id, shipment_date, status)\nVALUES ($1, CURRENT_TIMESTAMP, 'pending')\nRETURNING shipment_id;\n\nINSERT INTO shipment_details\n  (shipment_id, product_id, quantity)\nVALUES ($1, $2, $3);",
+    detail:'<strong>shipments</strong> ↔ <strong>suppliers</strong> (N:1): many shipments from one supplier. <strong>shipment_details</strong> is the bridge table for the N:M relationship between shipments and products. When status → <em>received</em>, stock is incremented — completing the supply cycle.'
+  },
+  {
+    num:8, title:'Stock Replenished',
+    desc:'Once a shipment status changes to <code>received</code>, the quantities in <code>shipment_details</code> are applied to <code>products.stock</code>, closing the supply cycle.',
+    tables:['shipment_details','products'],
+    sql:"UPDATE shipments SET status = 'received'\nWHERE shipment_id = $1;\n\nUPDATE products SET stock = stock + sd.quantity\nFROM shipment_details sd\nWHERE products.product_id = sd.product_id\n  AND sd.shipment_id = $1;",
+    detail:'This final step closes the loop: <strong>customers → sales → products → suppliers → shipments → products</strong>. The full cycle of demand driving replenishment is represented through the 7 tables of the schema, all connected through foreign keys.'
+  }
+];
+
+function renderFlow(){
+  const el=document.getElementById('flow-steps');
+  el.innerHTML=FLOW_STEPS.map((s,i)=>`
+    <div class="flow-item" data-i="${i}" onclick="pickFlow(${i})">
+      <div class="flow-spine">
+        <div class="flow-dot">${s.num}</div>
+        ${i<FLOW_STEPS.length-1?'<div class="flow-line"></div>':''}
+      </div>
+      <div class="flow-card" style="margin-top:0;">
+        <h4>${s.title}</h4>
+        <p>${s.desc}</p>
+        <div class="flow-tags">${s.tables.map(t=>`<span class="badge b-blue">${t}</span>`).join('')}</div>
       </div>
     </div>
   `).join('');
 }
 
-function selectProduct(id) {
-  const p = productos.find(x => x.id === id);
-  if (!p || p.stock === 0) return;
-  selectedProductId = id;
-  qty = 1;
-  document.getElementById('qty-display').textContent = qty;
-  renderProducts();
-
-  const prov = proveedores.find(x => x.id === p.id_proveedor);
-  document.getElementById('selection-box').outerHTML = `
-    <div class="selected-info" id="selection-box">
-      <strong>${p.emoji} ${p.nombre}</strong><br>
-      Proveedor: <strong>${prov ? prov.nombre : '—'}</strong><br>
-      Precio unit.: <strong>${fmtCOP(p.precio)}</strong> &nbsp;·&nbsp; Stock: <strong>${p.stock}</strong>
-    </div>`;
-}
-
-function changeQty(delta) {
-  if (!selectedProductId) return;
-  const p = productos.find(x => x.id === selectedProductId);
-  qty = Math.max(1, Math.min(p ? p.stock : 1, qty + delta));
-  document.getElementById('qty-display').textContent = qty;
-}
-
-function registerSale() {
-  const cliente = document.getElementById('f-cliente').value.trim();
-  const doc     = document.getElementById('f-doc').value.trim();
-
-  if (!selectedProductId)    { toast('Selecciona un producto primero', ''); return; }
-  if (!cliente)              { toast('Ingresa el nombre del cliente', ''); return; }
-  if (!doc)                  { toast('Ingresa el documento del cliente', ''); return; }
-
-  const p    = productos.find(x => x.id === selectedProductId);
-  const prov = proveedores.find(x => x.id === p.id_proveedor);
-
-  p.stock -= qty;
-  saleCounter++;
-  detailCounter++;
-
-  const saleId   = saleCounter;
-  const detailId = detailCounter;
-  const now      = new Date();
-  const fecha    = now.toISOString().split('T')[0];
-  const hora     = now.toTimeString().slice(0,8);
-
-  // add to log
-  addLog({ saleId, detailId, cliente, doc, producto: p, proveedor: prov, qty, fecha, hora });
-
-  // reset
-  selectedProductId = null;
-  qty = 1;
-  document.getElementById('f-cliente').value = '';
-  document.getElementById('f-doc').value = '';
-  document.getElementById('qty-display').textContent = '1';
-  document.getElementById('selection-box').outerHTML =
-    '<div class="no-selection" id="selection-box">← Selecciona un producto de la lista</div>';
-  renderProducts();
-  toast(`Venta #${saleId} registrada correctamente`, 'ok');
-}
-
-function addLog({ saleId, detailId, cliente, doc, producto, proveedor, qty, fecha, hora }) {
-  document.getElementById('log-empty').style.display = 'none';
-
-  const list  = document.getElementById('log-list');
-  const count = document.getElementById('log-count');
-  const total = parseInt(count.textContent) + 1;
-  count.textContent = total + (total === 1 ? ' registro' : ' registros');
-
-  const entry = document.createElement('div');
-  entry.className = 'log-entry';
-  entry.innerHTML = `
-    <div class="log-header">
-      <span class="log-badge">INSERT · detalle_venta</span>
-      <span class="log-time">${fecha} ${hora}</span>
+function pickFlow(i){
+  document.querySelectorAll('.flow-item').forEach((el,j)=>el.classList.toggle('on',j===i));
+  const s=FLOW_STEPS[i];
+  document.getElementById('flow-detail-content').innerHTML=`
+    <h4 style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:8px;">${s.title}</h4>
+    <p style="margin-bottom:10px;">${s.detail}</p>
+    <div style="font-size:11px;font-weight:600;color:var(--fg3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;">SQL Statement</div>
+    <div class="sql-box">${s.sql}</div>
+    <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;">
+      ${s.tables.map(t=>`<span class="badge b-purple">${t}</span>`).join('')}
     </div>
-    <div class="log-body">
-      <div class="log-row"><span class="log-key">-- Venta</span>
-        <span class="log-insert">INSERT INTO ventas</span>
-        <span style="color:var(--ink-2);margin-left:4px;">(id_venta: <span class="log-val">${saleId}</span>, fecha: <span class="log-val">'${fecha}'</span>, nombre_cliente: <span class="log-val">'${cliente}'</span>, documento_cliente: <span class="log-val">'${doc}'</span>)</span>
-      </div>
-      <div style="height:6px;"></div>
-      <div class="log-row"><span class="log-key">-- Detalle</span>
-        <span class="log-insert">INSERT INTO detalle_venta</span>
-        <span style="color:var(--ink-2);margin-left:4px;">(id_detalle: <span class="log-val">${detailId}</span>, id_venta: <span class="log-val">${saleId}</span>, id_producto: <span class="log-val">${producto.id}</span>, cantidad: <span class="log-val">${qty}</span>)</span>
-      </div>
-      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--rule);display:flex;gap:24px;flex-wrap:wrap;">
-        <span><span class="log-key" style="width:auto;margin-right:4px;">producto:</span><span class="log-val">${producto.nombre}</span></span>
-        <span><span class="log-key" style="width:auto;margin-right:4px;">proveedor:</span><span class="log-table">${proveedor ? proveedor.nombre : '—'}</span></span>
-        <span><span class="log-key" style="width:auto;margin-right:4px;">cantidad:</span><span class="log-val">${qty}</span></span>
-        <span><span class="log-key" style="width:auto;margin-right:4px;">tabla afectada:</span><span class="log-table">detalle_venta</span></span>
-      </div>
-    </div>`;
-
-  list.prepend(entry);
+  `;
 }
 
-/* ── TOAST ───────────────────────────────────────────────── */
-function toast(msg, type) {
-  const c = document.getElementById('toasts');
-  const t = document.createElement('div');
-  t.className = 'toast' + (type === 'ok' ? ' ok' : '');
-  t.textContent = (type === 'ok' ? '✓  ' : 'ℹ  ') + msg;
-  c.appendChild(t);
-  setTimeout(() => t.remove(), 2900);
+let flowTimer=null;
+function playFlow(){
+  resetFlow();
+  let i=0;const btn=document.getElementById('flow-play-btn');
+  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Playing…';btn.disabled=true;
+  flowTimer=setInterval(()=>{
+    pickFlow(i++);
+    if(i>=FLOW_STEPS.length){clearInterval(flowTimer);btn.innerHTML='<i class="fas fa-play"></i> Play All';btn.disabled=false;}
+  },1400);
+}
+function resetFlow(){
+  if(flowTimer)clearInterval(flowTimer);
+  document.querySelectorAll('.flow-item').forEach(el=>el.classList.remove('on'));
+  document.getElementById('flow-detail-content').innerHTML='Click any step or press <kbd style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:10.5px;border:1px solid var(--border2);">Play All</kbd> to see the business logic and SQL behind each operation.';
+  const btn=document.getElementById('flow-play-btn');btn.innerHTML='<i class="fas fa-play"></i> Play All';btn.disabled=false;
 }
 
-/* ── INIT ────────────────────────────────────────────────── */
-renderProducts();
+/* ══════════════════════════════════════════════════════════
+   STATIC MODEL — ER DIAGRAM
+══════════════════════════════════════════════════════════ */
+
+const ER_TABLES = {
+  customers: { cols: [
+    {name:'customer_id',type:'SERIAL',pk:true},
+    {name:'national_id',type:'VARCHAR(10)',note:'UNIQUE NOT NULL'},
+    {name:'name',type:'VARCHAR(100)'},
+    {name:'email',type:'VARCHAR(100)'},
+    {name:'phone',type:'VARCHAR(10)'},
+    {name:'address',type:'VARCHAR(150)'},
+  ]},
+  suppliers: { cols: [
+    {name:'supplier_id',type:'SERIAL',pk:true},
+    {name:'tax_id',type:'VARCHAR(10)',note:'UNIQUE NOT NULL'},
+    {name:'name',type:'VARCHAR(50)'},
+    {name:'phone',type:'VARCHAR(10)'},
+    {name:'email',type:'VARCHAR(80)'},
+    {name:'address',type:'VARCHAR(80)'},
+  ]},
+  products: { cols: [
+    {name:'product_id',type:'SERIAL',pk:true},
+    {name:'name',type:'VARCHAR(100)'},
+    {name:'brand',type:'VARCHAR(50)'},
+    {name:'category',type:'VARCHAR(50)'},
+    {name:'price',type:'NUMERIC(10,2)'},
+    {name:'stock',type:'INT'},
+    {name:'supplier_id',type:'INT',fk:'suppliers'},
+  ]},
+  sales: { cols: [
+    {name:'sale_id',type:'SERIAL',pk:true},
+    {name:'customer_id',type:'INT',fk:'customers'},
+    {name:'sale_date',type:'TIMESTAMP'},
+    {name:'total',type:'NUMERIC(10,2)'},
+  ]},
+  sale_details: { cols: [
+    {name:'detail_id',type:'SERIAL',pk:true},
+    {name:'sale_id',type:'INT',fk:'sales'},
+    {name:'product_id',type:'INT',fk:'products'},
+    {name:'quantity',type:'INT'},
+    {name:'unit_price',type:'NUMERIC(10,2)'},
+  ]},
+  shipments: { cols: [
+    {name:'shipment_id',type:'SERIAL',pk:true},
+    {name:'supplier_id',type:'INT',fk:'suppliers'},
+    {name:'shipment_date',type:'DATE'},
+    {name:'status',type:'VARCHAR(50)'},
+  ]},
+  shipment_details: { cols: [
+    {name:'shipment_detail_id',type:'SERIAL',pk:true},
+    {name:'shipment_id',type:'INT',fk:'shipments'},
+    {name:'product_id',type:'INT',fk:'products'},
+    {name:'quantity',type:'INT'},
+  ]}
+};
+
+/* ─────────────────────────────────────────────────────
+   LAYOUT  (canvas: 1060 × 760)
+   Row 0 (y≈40):   customers(left)    suppliers(right)
+   Row 1 (y≈260):  sales(left)        products(center)
+   Row 2 (y≈460):  sale_details(c-l)  shipments(right)
+   Row 3 (y≈610):       shipment_details(center-right)
+───────────────────────────────────────────────────── */
+const ER_POS = {
+  customers:        {x: 30,  y:  40},
+  suppliers:        {x: 840, y:  40},
+  sales:            {x: 30,  y: 255},
+  products:         {x: 530, y: 255},
+  sale_details:     {x: 250, y: 460},
+  shipments:        {x: 840, y: 255},
+  shipment_details: {x: 620, y: 560},
+};
+
+const TBL_COLOR = {
+  customers:'#3b82f6', suppliers:'#a78bfa', products:'#22c55e',
+  sales:'#f59e0b', sale_details:'#fb923c', shipments:'#ec4899',
+  shipment_details:'#06b6d4'
+};
+
+/* Relationships — ordered so main-flow lines render last (on top) */
+const ER_RELS = [
+  /* secondary (supply chain) */
+  {from:'suppliers',    to:'products',         fkCol:'supplier_id',  label:'1:N', main:false},
+  {from:'suppliers',    to:'shipments',        fkCol:'supplier_id',  label:'1:N', main:false},
+  {from:'shipments',    to:'shipment_details', fkCol:'shipment_id',  label:'1:N', main:false},
+  {from:'products',     to:'shipment_details', fkCol:'product_id',   label:'1:N', main:false},
+  /* main flow (sales pipeline) — rendered last so they sit on top */
+  {from:'customers',    to:'sales',            fkCol:'customer_id',  label:'1:N', main:true},
+  {from:'sales',        to:'sale_details',     fkCol:'sale_id',      label:'1:N', main:true},
+  {from:'products',     to:'sale_details',     fkCol:'product_id',   label:'1:N', main:true},
+];
+
+/* ── Return visual style config for a relationship ── */
+function relStyle2(rel) {
+  if (rel.main) {
+    if (rel.from === 'products') {
+      return {stroke:'#4ade80', w:3, dash:'', opacity:0.9,
+              marker:'url(#arr-main-g)', markerHi:'url(#arr-main-g-hi)'};
+    }
+    return {stroke:'#60a5fa', w:3, dash:'', opacity:0.9,
+            marker:'url(#arr-main)', markerHi:'url(#arr-main-hi)'};
+  }
+  const c = TBL_COLOR[rel.from] || '#c4b5fd';
+  let marker='url(#arr-sec)', markerHi='url(#arr-sec-hi)';
+  if (c==='#ec4899'){marker='url(#arr-sec-p)'; markerHi='url(#arr-sec-p-hi)';}
+  if (c==='#06b6d4'){marker='url(#arr-sec-c)'; markerHi='url(#arr-sec-c-hi)';}
+  return {stroke:c, w:2, dash:'6 4', opacity:0.7, marker, markerHi};
+}
+
+/* ── Build table DOM nodes ── */
+function buildERNodes() {
+  const stage = document.getElementById('er-stage');
+  stage.querySelectorAll('.er-node').forEach(n => n.remove());
+
+  Object.entries(ER_TABLES).forEach(([name, def]) => {
+    const pos   = ER_POS[name];
+    const color = TBL_COLOR[name] || '#3b82f6';
+    const el    = document.createElement('div');
+    el.className   = 'er-node';
+    el.id          = 'er-node-' + name;
+    el.dataset.tbl = name;
+    el.style.left  = pos.x + 'px';
+    el.style.top   = pos.y + 'px';
+
+    const colsHtml = def.cols.map(c => {
+      const tag = c.pk ? `<span class="tag pk-tag">PK</span>`
+                : c.fk ? `<span class="tag fk-tag">FK</span>`
+                : `<span style="display:inline-block;min-width:24px;"></span>`;
+      const ns  = c.pk ? 'color:var(--fg);font-weight:600;' : '';
+      return `<div class="er-col">${tag}<span class="col-name" style="${ns}">${c.name}</span><span class="col-type">${c.type}</span></div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="er-node-head" style="color:${color};background:linear-gradient(135deg,${color}22,${color}08)">
+        <span class="er-node-head-dot" style="background:${color};box-shadow:0 0 6px ${color}88"></span>${name}
+      </div>${colsHtml}`;
+
+    el.addEventListener('mouseenter', () => highlightNode(name));
+    el.addEventListener('mouseleave', clearHighlight);
+    stage.appendChild(el);
+  });
+}
+
+/* ── Get bounding rect relative to the stage ── */
+function nodeRect(name, sr) {
+  const el = document.getElementById('er-node-' + name);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { x:r.left-sr.left, y:r.top-sr.top, w:r.width, h:r.height,
+           cx:r.left-sr.left+r.width/2, cy:r.top-sr.top+r.height/2 };
+}
+
+/* ── Pick nearest edge connection points ── */
+function getEdgePoints(A, B) {
+  const dx = B.cx - A.cx, dy = B.cy - A.cy;
+  let x1,y1,x2,y2;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    x1 = dx>0?A.x+A.w:A.x; y1=A.cy;
+    x2 = dx>0?B.x:B.x+B.w; y2=B.cy;
+  } else {
+    x1=A.cx; y1=dy>0?A.y+A.h:A.y;
+    x2=B.cx; y2=dy>0?B.y:B.y+B.h;
+  }
+  return {x1,y1,x2,y2};
+}
+
+/* ── Build cubic bezier path string ── */
+function makePath(x1,y1,x2,y2) {
+  const dx=Math.abs(x2-x1), dy=Math.abs(y2-y1);
+  let cp1x,cp1y,cp2x,cp2y;
+  if (dx>=dy) {
+    const b=Math.min(dx*.42,130);
+    cp1x=x1+(x2>x1?b:-b); cp1y=y1;
+    cp2x=x2-(x2>x1?b:-b); cp2y=y2;
+  } else {
+    const b=Math.min(dy*.42,110);
+    cp1x=x1; cp1y=y1+(y2>y1?b:-b);
+    cp2x=x2; cp2y=y2-(y2>y1?b:-b);
+  }
+  return `M${x1},${y1} C${cp1x},${cp1y} ${cp2x},${cp2y} ${x2},${y2}`;
+}
+
+/* ── Draw all SVG relationship lines ── */
+function drawERLines() {
+  const svg   = document.getElementById('er-svg');
+  const stage = document.getElementById('er-stage');
+  const sr    = stage.getBoundingClientRect();
+
+  /* Remove everything except <defs> */
+  Array.from(svg.children).forEach(c => { if (c.tagName!=='defs') svg.removeChild(c); });
+
+  ER_RELS.forEach((rel, idx) => {
+    const A = nodeRect(rel.from, sr);
+    const B = nodeRect(rel.to,   sr);
+    if (!A||!B) return;
+
+    const {x1,y1,x2,y2} = getEdgePoints(A, B);
+    const d  = makePath(x1,y1,x2,y2);
+    const st = relStyle2(rel);
+
+    /* ── Compute true Bézier midpoint at t=0.5 (De Casteljau) ── */
+    const dx=Math.abs(x2-x1), dy=Math.abs(y2-y1);
+    let cp1x,cp1y,cp2x,cp2y;
+    if (dx>=dy) {
+      const b=Math.min(dx*.42,130);
+      cp1x=x1+(x2>x1?b:-b); cp1y=y1;
+      cp2x=x2-(x2>x1?b:-b); cp2y=y2;
+    } else {
+      const b=Math.min(dy*.42,110);
+      cp1x=x1; cp1y=y1+(y2>y1?b:-b);
+      cp2x=x2; cp2y=y2-(y2>y1?b:-b);
+    }
+    // De Casteljau at t=0.5
+    const t=0.5, mt=1-t;
+    const bx = mt*mt*mt*x1 + 3*mt*mt*t*cp1x + 3*mt*t*t*cp2x + t*t*t*x2;
+    const by = mt*mt*mt*y1 + 3*mt*mt*t*cp1y + 3*mt*t*t*cp2y + t*t*t*y2;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','er-rel-group');
+    g.dataset.from = rel.from;
+    g.dataset.to   = rel.to;
+    g.dataset.idx  = idx;
+
+    /* Wide transparent hit area */
+    const hit = document.createElementNS('http://www.w3.org/2000/svg','path');
+    hit.setAttribute('d',d); hit.setAttribute('fill','none');
+    hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width','14');
+
+    /* Visible path with round caps and joins */
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('class','er-path');
+    path.setAttribute('d',d); path.setAttribute('fill','none');
+    path.setAttribute('stroke',st.stroke);
+    path.setAttribute('stroke-width',st.w);
+    path.setAttribute('stroke-opacity',st.opacity);
+    path.setAttribute('stroke-dasharray',st.dash);
+    path.setAttribute('marker-end',st.marker);
+    path.setAttribute('stroke-linecap','round');
+    path.setAttribute('stroke-linejoin','round');
+
+    /* Cardinality pill — positioned on the TRUE Bézier midpoint */
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    bg.setAttribute('x',bx-11); bg.setAttribute('y',by-9);
+    bg.setAttribute('width',22); bg.setAttribute('height',13);
+    bg.setAttribute('rx',4); bg.setAttribute('fill','#0d1017');
+    bg.setAttribute('stroke',st.stroke); bg.setAttribute('stroke-width',0.8);
+    bg.setAttribute('stroke-opacity',String(st.opacity+.15));
+    bg.setAttribute('opacity',String(st.opacity+.2));
+
+    const lt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lt.setAttribute('x',bx); lt.setAttribute('y',by+1);
+    lt.setAttribute('text-anchor','middle'); lt.setAttribute('dominant-baseline','middle');
+    lt.setAttribute('font-size','8'); lt.setAttribute('font-weight','700');
+    lt.setAttribute('font-family','Space Grotesk, sans-serif');
+    lt.setAttribute('fill',st.stroke); lt.setAttribute('fill-opacity',String(st.opacity+.3));
+    lt.textContent = rel.label;
+
+    /* FK column name near the "many" end (from-end) */
+    const ang = Math.atan2(y2-y1, x2-x1);
+    const fkx = x1 + Math.cos(ang)*22, fky = y1 + Math.sin(ang)*22 - 8;
+    const fkt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    fkt.setAttribute('x',fkx); fkt.setAttribute('y',fky);
+    fkt.setAttribute('text-anchor','middle');
+    fkt.setAttribute('font-size','7.5'); fkt.setAttribute('font-weight','500');
+    fkt.setAttribute('font-family','Fira Code, monospace');
+    fkt.setAttribute('fill','#c4b5fd'); fkt.setAttribute('fill-opacity','0.55');
+    fkt.textContent = rel.fkCol;
+
+    /* Small dot at the "one" end (parent) */
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',x2); dot.setAttribute('cy',y2);
+    dot.setAttribute('r','3'); dot.setAttribute('fill',st.stroke);
+    dot.setAttribute('fill-opacity',String(st.opacity));
+
+    g.appendChild(hit); g.appendChild(path); g.appendChild(dot);
+    g.appendChild(bg);  g.appendChild(lt);   g.appendChild(fkt);
+    svg.appendChild(g);
+  });
+}
+
+/* ── Hover: highlight connected tables + their lines ── */
+function highlightNode(tblName) {
+  const stage = document.getElementById('er-stage');
+  const svg   = document.getElementById('er-svg');
+  const connected = new Set([tblName]);
+  ER_RELS.forEach(r => {
+    if (r.from===tblName) connected.add(r.to);
+    if (r.to===tblName)   connected.add(r.from);
+  });
+
+  stage.querySelectorAll('.er-node').forEach(n => {
+    const t = n.dataset.tbl;
+    n.classList.toggle('er-active', connected.has(t));
+    n.classList.toggle('er-faded',  !connected.has(t));
+    n.style.borderColor = connected.has(t) ? (TBL_COLOR[t]||'var(--accent)') : '';
+    n.style.boxShadow   = connected.has(t) ? `0 0 20px ${TBL_COLOR[t]||'#3b82f6'}40` : '';
+  });
+
+  svg.querySelectorAll('.er-rel-group').forEach(g => {
+    const i   = parseInt(g.dataset.idx);
+    const rel = ER_RELS[i];
+    if (!rel) return;
+    const active = g.dataset.from===tblName || g.dataset.to===tblName;
+    const st     = relStyle2(rel);
+    const path   = g.querySelector('.er-path');
+    const dot    = g.querySelector('circle');
+    const [bgEl, ltEl, fktEl] = [g.querySelector('rect'), ...g.querySelectorAll('text')];
+
+    if (active) {
+      path && path.setAttribute('stroke-opacity','1');
+      path && path.setAttribute('stroke-width', String(rel.main?4:3));
+      path && path.setAttribute('stroke', rel.main ? (rel.from==='products'?'#86efac':'#93c5fd') : st.stroke);
+      path && path.setAttribute('marker-end', st.markerHi);
+      dot  && dot.setAttribute('fill-opacity','1');
+      bgEl && bgEl.setAttribute('opacity','1');
+      ltEl && ltEl.setAttribute('fill-opacity','1');
+      fktEl && fktEl.setAttribute('fill-opacity','1');
+    } else {
+      path && path.setAttribute('stroke-opacity','0.08');
+      path && path.setAttribute('stroke-width', String(st.w));
+      dot  && dot.setAttribute('fill-opacity','0.08');
+      bgEl && bgEl.setAttribute('opacity','0.1');
+      ltEl && ltEl.setAttribute('fill-opacity','0.08');
+      fktEl && fktEl.setAttribute('fill-opacity','0.08');
+    }
+  });
+}
+
+function clearHighlight() {
+  const stage = document.getElementById('er-stage');
+  const svg   = document.getElementById('er-svg');
+  stage.querySelectorAll('.er-node').forEach(n => {
+    n.classList.remove('er-active','er-faded');
+    n.style.borderColor=''; n.style.boxShadow='';
+  });
+  svg.querySelectorAll('.er-rel-group').forEach(g => {
+    const i=parseInt(g.dataset.idx);
+    const rel=ER_RELS[i];
+    if(!rel) return;
+    const st   = relStyle2(rel);
+    const path = g.querySelector('.er-path');
+    const dot  = g.querySelector('circle');
+    const bgEl = g.querySelector('rect');
+    const txts = g.querySelectorAll('text');
+    if (path) {
+      path.setAttribute('stroke-opacity', String(st.opacity));
+      path.setAttribute('stroke-width',   String(st.w));
+      path.setAttribute('stroke',         st.stroke);
+      path.setAttribute('marker-end',     st.marker);
+    }
+    if (dot)    dot.setAttribute('fill-opacity', String(st.opacity));
+    if (bgEl)   bgEl.setAttribute('opacity',     String(st.opacity + .2));
+    // txts[0] = cardinality label, txts[1] = FK column name
+    if (txts[0]) txts[0].setAttribute('fill-opacity', String(st.opacity + .3));
+    if (txts[1]) txts[1].setAttribute('fill-opacity', '0.55');
+  });
+}
+
+function buildER() {
+  buildERNodes();
+  /* Double rAF ensures DOM layout is fully settled before measuring */
+  requestAnimationFrame(() => requestAnimationFrame(drawERLines));
+}
+
+let _erRT;
+window.addEventListener('resize', () => { clearTimeout(_erRT); _erRT=setTimeout(drawERLines,140); });
+
+/* ══════════════════════════════════════════════════════════
+   SQL PLAYGROUND
+══════════════════════════════════════════════════════════ */
+const SCHEMA_SQL=`-- company database schema (PostgreSQL)
+
+CREATE TABLE customers (
+    customer_id SERIAL PRIMARY KEY,
+    national_id VARCHAR(10) UNIQUE NOT NULL,
+    name        VARCHAR(100),
+    email       VARCHAR(100),
+    phone       VARCHAR(10),
+    address     VARCHAR(150)
+);
+
+CREATE TABLE suppliers (
+    supplier_id SERIAL PRIMARY KEY,
+    tax_id  VARCHAR(10) UNIQUE NOT NULL,
+    name    VARCHAR(50),
+    phone   VARCHAR(10),
+    email   VARCHAR(80),
+    address VARCHAR(80)
+);
+
+CREATE TABLE products (
+    product_id  SERIAL PRIMARY KEY,
+    name        VARCHAR(100),
+    brand       VARCHAR(50),
+    category    VARCHAR(50),
+    price       NUMERIC(10,2) NOT NULL,
+    stock       INT DEFAULT 0,
+    supplier_id INT,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id)
+);
+
+CREATE TABLE sales (
+    sale_id     SERIAL PRIMARY KEY,
+    customer_id INT,
+    sale_date   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total       NUMERIC(10,2),
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+CREATE TABLE sale_details (
+    detail_id  SERIAL PRIMARY KEY,
+    sale_id    INT,
+    product_id INT,
+    quantity   INT,
+    unit_price NUMERIC(10,2),
+    FOREIGN KEY (sale_id)    REFERENCES sales(sale_id),
+    FOREIGN KEY (product_id) REFERENCES products(product_id)
+);
+
+CREATE TABLE shipments (
+    shipment_id   SERIAL PRIMARY KEY,
+    supplier_id   INT,
+    shipment_date DATE,
+    status        VARCHAR(50),
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id)
+);
+
+CREATE TABLE shipment_details (
+    shipment_detail_id SERIAL PRIMARY KEY,
+    shipment_id        INT,
+    product_id         INT,
+    quantity           INT,
+    FOREIGN KEY (shipment_id) REFERENCES shipments(shipment_id),
+    FOREIGN KEY (product_id)  REFERENCES products(product_id)
+);`;
+
+function renderSchema(){
+  const el=document.getElementById('schema-disp');
+  const h=SCHEMA_SQL
+    .replace(/--(.+)/g,'<span class="cm">--$1</span>')
+    .replace(/\b(CREATE|TABLE|PRIMARY|KEY|REFERENCES|DEFAULT|FOREIGN|UNIQUE|NOT NULL)\b/g,m=>`<span class="kw">${m}</span>`)
+    .replace(/\b(SERIAL|VARCHAR|INT|NUMERIC|TIMESTAMP|DATE)\b/g,m=>`<span class="tp">${m}</span>`)
+    .replace(/\b(CURRENT_TIMESTAMP)\b/g,m=>`<span class="fn">${m}</span>`);
+  el.innerHTML=h;
+}
+
+function setSQL(q){document.getElementById('sql-input').value=q;executeSQL();}
+function clearSQL(){
+  document.getElementById('sql-input').value='';
+  document.getElementById('sql-res-table').style.display='none';
+  document.getElementById('sql-res-json').style.display='none';
+  document.getElementById('sql-res-empty').style.display='block';
+  document.getElementById('sql-res-empty').innerHTML='<i class="fas fa-database" style="font-size:26px;margin-bottom:10px;display:block;"></i>Execute a query to see results';
+}
+
+// ── SQL Engine ──
+function simulateSQL(rawSql){
+  const sql=rawSql.replace(/\s+/g,' ').trim().replace(/;$/,'');
+
+  // Simple SELECT *
+  const simple=sql.match(/^SELECT\s+\*\s+FROM\s+(\w+)$/i);
+  if(simple){
+    const tbl=simple[1].toLowerCase();
+    if(!DB[tbl])throw new Error(`Table "${tbl}" does not exist`);
+    const rows=JSON.parse(JSON.stringify(DB[tbl]));
+    return{columns:rows.length?Object.keys(rows[0]):[],rows};
+  }
+
+  // Full pattern
+  const m=sql.match(
+    /^SELECT\s+(.+?)\s+FROM\s+(\w+)(?:\s+(?:AS\s+)?(\w+))?(?:\s+(?:(?:INNER|LEFT|RIGHT)?\s*JOIN)\s+(\w+)(?:\s+(?:AS\s+)?(\w+))?\s+ON\s+(.+?))?(?:\s+WHERE\s+(.+?))?(?:\s+GROUP\s+BY\s+(.+?))?(?:\s+ORDER\s+BY\s+(.+?))?(?:\s+(ASC|DESC))?$/i
+  );
+  if(!m)throw new Error('Unsupported SQL syntax. Try: SELECT … FROM … [JOIN … ON …] [WHERE …] [GROUP BY …] [ORDER BY … ASC|DESC]');
+
+  let [,selClause,fromTbl,,joinTbl,,joinOn,whereClause,groupBy,orderBy,orderDir]=m;
+  fromTbl=fromTbl.toLowerCase();
+  if(!DB[fromTbl])throw new Error(`Table "${fromTbl}" does not exist`);
+
+  // Determine aliases from SELECT clause (e.g. "s.sale_id", "c.name AS customer")
+  let rows=[];
+
+  if(joinTbl){
+    joinTbl=joinTbl.toLowerCase();
+    if(!DB[joinTbl])throw new Error(`Table "${joinTbl}" does not exist`);
+    const jm=joinOn.match(/(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)/i);
+    if(!jm)throw new Error('Invalid JOIN ON condition');
+    const[,t1,c1,t2,c2]=jm;
+    // figure out which is left/right
+    const lt=t1.toLowerCase()===fromTbl?fromTbl:joinTbl;
+    const rt=t1.toLowerCase()===fromTbl?joinTbl:fromTbl;
+    const lc=t1.toLowerCase()===fromTbl?c1:c2;
+    const rc=t1.toLowerCase()===fromTbl?c2:c1;
+    DB[lt].forEach(lr=>{
+      DB[rt].forEach(rr=>{
+        if(lr[lc]==rr[rc]){
+          const merged={};
+          Object.keys(lr).forEach(k=>merged[`${lt}.${k}`]=lr[k]);
+          Object.keys(rr).forEach(k=>merged[`${rt}.${k}`]=rr[k]);
+          rows.push(merged);
+        }
+      });
+    });
+  } else {
+    rows=DB[fromTbl].map(r=>{
+      const o={};Object.keys(r).forEach(k=>o[`${fromTbl}.${k}`]=r[k]);return o;
+    });
+  }
+
+  // WHERE
+  if(whereClause){
+    rows=rows.filter(row=>{
+      const cm=whereClause.match(/(\w+\.\w+|\w+)\s*(<=|>=|!=|=|<|>)\s*('[^']*'|\d+\.?\d*)/);
+      if(!cm)return true;
+      let[,col,op,val]=cm;
+      val=val.replace(/'/g,'');
+      const k=Object.keys(row).find(rk=>rk===col||rk.endsWith('.'+col))||col;
+      const rv=row[k],nv=isNaN(Number(val))?val:Number(val),rn=isNaN(Number(rv))?rv:Number(rv);
+      switch(op){case'=':return rn==nv;case'!=':return rn!=nv;case'<':return rn<nv;case'>':return rn>nv;case'<=':return rn<=nv;case'>=':return rn>=nv;}
+      return true;
+    });
+  }
+
+  // GROUP BY
+  if(groupBy){
+    const gCols=groupBy.split(',').map(c=>c.trim());
+    const groups={};
+    rows.forEach(row=>{
+      const key=gCols.map(c=>{const k=Object.keys(row).find(rk=>rk===c||rk.endsWith('.'+c))||c;return row[k];}).join('|');
+      (groups[key]=groups[key]||[]).push(row);
+    });
+    rows=Object.values(groups).map(g=>{
+      const out={};
+      gCols.forEach(c=>{const k=Object.keys(g[0]).find(rk=>rk===c||rk.endsWith('.'+c))||c;out[c]=g[0][k];});
+      const sumM=selClause.match(/SUM\((\w+\.\w+|\w+)\)/gi)||[];
+      sumM.forEach(agg=>{
+        const cm=agg.match(/SUM\((\w+\.\w+|\w+)\)/i);if(!cm)return;
+        const ac=cm[1];const k=Object.keys(g[0]).find(rk=>rk===ac||rk.endsWith('.'+ac))||ac;
+        const alias=selClause.match(new RegExp(`SUM\\(${ac.replace('.','\\.')}\)\\s+AS\\s+(\\w+)`,'i'));
+        out[alias?alias[1]:`SUM(${ac})`]=Math.round(g.reduce((s,r)=>s+(Number(r[k])||0),0)*100)/100;
+      });
+      if(selClause.match(/COUNT\(/i))out['COUNT']=g.length;
+      return out;
+    });
+  }
+
+  // ORDER BY
+  if(orderBy&&rows.length){
+    const oc=orderBy.trim();const dir=(orderDir||'ASC').toUpperCase();
+    const k=Object.keys(rows[0]).find(rk=>rk===oc||rk.endsWith('.'+oc));
+    if(k)rows.sort((a,b)=>{const va=a[k],vb=b[k];const cmp=typeof va==='number'?va-vb:String(va).localeCompare(String(vb));return dir==='DESC'?-cmp:cmp;});
+  }
+
+  // Column projection
+  if(selClause.trim()!=='*'){
+    const parts=selClause.split(',').map(p=>{
+      p=p.trim();
+      const am=p.match(/^(.+?)\s+AS\s+(\w+)$/i);
+      return am?{expr:am[1].trim(),alias:am[2].trim()}:{expr:p,alias:null};
+    });
+    rows=rows.map(row=>{
+      const out={};
+      parts.forEach(({expr,alias})=>{
+        if(/^(SUM|COUNT|AVG)\(/i.test(expr)){
+          const k=Object.keys(row).find(rk=>rk.toUpperCase().startsWith(expr.substring(0,3).toUpperCase()));
+          if(k)out[alias||expr]=row[k];
+          else{const raw=Object.keys(row).find(rk=>rk===expr);if(raw)out[alias||expr]=row[raw];}
+        } else {
+          const k=Object.keys(row).find(rk=>rk===expr||rk.endsWith('.'+expr));
+          if(k!==undefined)out[alias||expr]=row[k];
+        }
+      });
+      return out;
+    });
+  } else {
+    rows=rows.map(row=>{
+      const out={};Object.entries(row).forEach(([k,v])=>{out[k.includes('.')?k.split('.')[1]:k]=v;});return out;
+    });
+  }
+
+  return{columns:rows.length?Object.keys(rows[0]):[],rows};
+}
+
+function executeSQL(){
+  const sql=document.getElementById('sql-input').value.trim();
+  if(!sql)return;
+  try{
+    const res=simulateSQL(sql);
+    showResult(res);
+    toast('Query executed — '+res.rows.length+' row(s)','s');
+  }catch(e){
+    showError(e.message);
+    toast('Query error: '+e.message,'e');
+  }
+}
+
+/* ── Column-aware cell formatter ──
+   Rules (by column name):
+   · *price / *total / *spent  → USD currency (2 decimals)
+   · stock / quantity / *_id   → plain integer, no currency
+   · date strings              → localized date
+   · everything else           → raw value
+*/
+const PRICE_COLS  = /^(price|total|unit_price|spent|subtotal|revenue)$/i;
+const INT_COLS    = /^(stock|quantity|.*_id|sale_id|product_id|customer_id|supplier_id|shipment_id|detail_id|shipment_detail_id|units|count)$/i;
+
+function formatCell(colName, v) {
+  if (v == null) return `<td style="color:var(--fg3)">NULL</td>`;
+  // Dates
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) {
+    const d = new Date(v);
+    return `<td style="color:var(--fg2)">${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>`;
+  }
+  // Currency columns - ALWAYS format as $xx.xx
+  if (PRICE_COLS.test(colName)) {
+    const num = Number(v);
+    if (!isNaN(num)) {
+      return `<td style="color:var(--accent-g);font-weight:600;">${usd(num)}</td>`;
+    }
+  }
+  // Integer columns — show plain, no formatting (includes stock)
+  if (INT_COLS.test(colName)) {
+    return `<td>${v}</td>`;
+  }
+  // Numbers that look like prices but column name wasn't matched
+  if (typeof v === 'number' && !Number.isInteger(v)) {
+    return `<td style="color:var(--accent-g);font-weight:600;">${usd(v)}</td>`;
+  }
+  return `<td>${v}</td>`;
+}
+
+function showResult(res){
+  document.getElementById('sql-res-empty').style.display='none';
+  let html=`<table class="tbl"><thead><tr>${res.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+  res.rows.forEach(row=>{
+    html+='<tr>'+res.columns.map(c => formatCell(c, row[c])).join('')+'</tr>';
+  });
+  html+=`</tbody></table><div style="margin-top:9px;font-size:11px;color:var(--fg3);">${res.rows.length} row${res.rows.length!==1?'s':''} returned</div>`;
+  const t=document.getElementById('sql-res-table');
+  t.innerHTML=html;t.style.display='block';
+  document.getElementById('sql-json').textContent=JSON.stringify(res.rows,null,2);
+}
+
+function showError(msg){
+  document.getElementById('sql-res-table').style.display='none';
+  document.getElementById('sql-res-json').style.display='none';
+  const e=document.getElementById('sql-res-empty');
+  e.style.display='block';
+  e.innerHTML=`<div style="color:var(--accent-r);"><i class="fas fa-exclamation-triangle" style="font-size:22px;margin-bottom:9px;display:block;"></i>${msg}</div>`;
+}
+
+function switchTab(tab,btn){
+  document.querySelectorAll('.sql-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sql-res-table').style.display=tab==='table'?'block':'none';
+  document.getElementById('sql-res-json').style.display=tab==='json'?'block':'none';
+}
+
+/* ══════════════════════════════════════════════════════════
+   STORE DEMO
+══════════════════════════════════════════════════════════ */
+let cart=[];
+
+function initStore(){
+  const sel=document.getElementById('store-customer');
+  sel.innerHTML='<option value="">— Choose a customer —</option>'+
+    DB.customers.map(c=>`<option value="${c.customer_id}">${c.name} — ${c.email}</option>`).join('');
+  renderProds();
+}
+
+function renderProds(){
+  document.getElementById('store-products').innerHTML=DB.products.map(p=>`
+    <div class="prod-card" data-pid="${p.product_id}" onclick="addToCart(${p.product_id})">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div class="prod-name">${p.name}</div>
+        <span class="badge ${p.stock<LOW?'b-red':'b-green'}">${p.stock<LOW?'Low':'OK'}</span>
+      </div>
+      <div class="prod-desc">${p.brand} · ${p.category}</div>
+      <div class="prod-price">${usd(p.price)}</div>
+      <div class="prod-stock"><span class="sdot ${p.stock<LOW?'sdot-lo':'sdot-ok'}"></span>${p.stock} units</div>
+    </div>
+  `).join('');
+}
+
+function addToCart(pid){
+  const p=DB.products.find(x=>x.product_id===pid);if(!p)return;
+  if(p.stock<=0){toast('Out of stock','e');return;}
+  const ex=cart.find(c=>c.product_id===pid);
+  if(ex){
+    if(ex.quantity>=p.stock){toast(`Max stock: ${p.stock} units`,'e');return;}
+    ex.quantity++;
+  } else {
+    cart.push({product_id:pid,name:p.name,price:p.price,quantity:1});
+  }
+  const el=document.querySelector(`.prod-card[data-pid="${pid}"]`);
+  if(el){el.classList.add('sel');setTimeout(()=>el.classList.remove('sel'),300);}
+  renderCart();
+  toast(`Added ${p.name}`,'s');
+}
+
+function removeCart(pid){cart=cart.filter(c=>c.product_id!==pid);renderCart();}
+
+function updateQty(pid,d){
+  const item=cart.find(c=>c.product_id===pid);
+  const p=DB.products.find(x=>x.product_id===pid);
+  if(!item||!p)return;
+  const nq=item.quantity+d;
+  if(nq<=0){removeCart(pid);return;}
+  if(nq>p.stock){toast(`Only ${p.stock} available`,'e');return;}
+  item.quantity=nq;
+  renderCart();
+}
+
+function renderCart(){
+  const el=document.getElementById('cart-items');
+  const sum=document.getElementById('cart-summary');
+  if(!cart.length){
+    el.innerHTML='<div style="text-align:center;padding:22px;color:var(--fg3);font-size:12.5px;"><i class="fas fa-cart-plus" style="font-size:22px;margin-bottom:9px;display:block;"></i>Click products to add them to cart</div>';
+    sum.style.display='none';return;
+  }
+  const total=cart.reduce((s,c)=>s+c.price*c.quantity,0);
+  el.innerHTML=cart.map(c=>`
+    <div class="cart-row">
+      <div><div style="font-size:12.5px;font-weight:600;">${c.name}</div><div style="font-size:11px;color:var(--fg2);">${usd(c.price)} each</div></div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="btn btn-ghost" style="padding:3px 7px;font-size:11px;" onclick="updateQty(${c.product_id},-1)">−</button>
+        <span style="font-size:12.5px;font-weight:600;min-width:18px;text-align:center;">${c.quantity}</span>
+        <button class="btn btn-ghost" style="padding:3px 7px;font-size:11px;" onclick="updateQty(${c.product_id},1)">+</button>
+        <span style="font-size:13px;font-weight:700;color:var(--accent-g);min-width:55px;text-align:right;">${usd(c.price*c.quantity)}</span>
+        <button class="btn btn-danger" style="padding:3px 6px;font-size:10px;" onclick="removeCart(${c.product_id})"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('cart-total').textContent=usd(total);
+  sum.style.display='block';
+}
+
+function confirmSale(){
+  const cid=parseInt(document.getElementById('store-customer').value);
+  if(!cid){toast('Select a customer first','e');return;}
+  if(!cart.length){toast('Cart is empty','e');return;}
+  // Validate stock
+  for(const item of cart){
+    const p=DB.products.find(x=>x.product_id===item.product_id);
+    if(!p||item.quantity>p.stock){toast(`Insufficient stock for "${item.name}"`,'e');return;}
+  }
+  const c=DB.customers.find(x=>x.customer_id===cid);
+  const total=cart.reduce((s,x)=>s+x.price*x.quantity,0);
+  document.getElementById('modal-content').innerHTML=`
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--fg2);margin-bottom:3px;">Customer</div>
+      <div style="font-size:14.5px;font-weight:600;">${c.name}</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--fg2);margin-bottom:6px;">Items</div>
+      ${cart.map(x=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;">
+        <span>${x.name} × ${x.quantity}</span><span style="font-weight:600;">${usd(x.price*x.quantity)}</span>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);font-size:15px;font-weight:700;">
+      <span>Total</span><span style="color:var(--accent-g);">${usd(total)}</span>
+    </div>
+  `;
+  openModal('sale-modal');
+}
+
+function processSale(){
+  closeModal('sale-modal');
+  const cid=parseInt(document.getElementById('store-customer').value);
+  const total=Math.round(cart.reduce((s,x)=>s+x.price*x.quantity,0)*100)/100;
+  const sid=DB._nextSaleId++;
+  const now=new Date().toISOString();
+  DB.sales.push({sale_id:sid,customer_id:cid,sale_date:now,total});
+
+  const ops=[];
+  ops.push(`<span style="color:#86efac;">INSERT INTO sales</span>`);
+  ops.push(`  (sale_id, customer_id, sale_date, total)`);
+  ops.push(`  VALUES (${sid}, ${cid}, NOW(), ${total.toFixed(2)});`);
+  ops.push('');
+
+  cart.forEach(item=>{
+    const did=DB._nextDetailId++;
+    DB.sale_details.push({detail_id:did,sale_id:sid,product_id:item.product_id,quantity:item.quantity,unit_price:item.price});
+    ops.push(`<span style="color:#86efac;">INSERT INTO sale_details</span>`);
+    ops.push(`  (detail_id, sale_id, product_id, quantity, unit_price)`);
+    ops.push(`  VALUES (${did}, ${sid}, ${item.product_id}, ${item.quantity}, ${item.price.toFixed(2)});`);
+    ops.push('');
+  });
+
+  ops.push(`<span style="color:#fcd34d;">UPDATE sales</span> SET total = ${total.toFixed(2)} WHERE sale_id = ${sid};`);
+  ops.push('');
+
+  cart.forEach(item=>{
+    const p=DB.products.find(x=>x.product_id===item.product_id);
+    if(p){
+      p.stock-=item.quantity;
+      ops.push(`<span style="color:#fcd34d;">UPDATE products</span> SET stock = ${p.stock} WHERE product_id = ${item.product_id}; -- ${p.name}`);
+    }
+  });
+
+  const rc=document.getElementById('sale-result-card');
+  rc.style.display='block';
+  document.getElementById('sale-ops').innerHTML=ops.join('\n');
+
+  cart=[];renderCart();renderProds();
+  toast(`Sale #${sid} — ${usd(total)} processed`,'s');
+}
+
+/* ══════════════════════════════════════════════════════════
+   ADMIN DASHBOARD
+══════════════════════════════════════════════════════════ */
+let charts={};
+
+function refreshAdmin(){
+  updateMetrics();
+  buildCharts();
+  buildAdminTables();
+}
+
+function animNum(id,target,pre,su,dur){
+  pre=pre||'';su=su||'';dur=dur||1000;
+  const el=document.getElementById(id);
+  const t0=performance.now();
+  (function step(now){
+    const p=Math.min((now-t0)/dur,1),e=1-Math.pow(1-p,3),v=Math.round(target*e);
+    el.textContent=pre+v.toLocaleString('en-US')+su;
+    if(p<1)requestAnimationFrame(step);
+  })(t0);
+}
+
+function updateMetrics(){
+  const rev=DB.sales.reduce((s,x)=>s+x.total,0);
+  animNum('m-sales',DB.sales.length);
+  animNum('m-revenue',Math.round(rev),'$');
+  animNum('m-customers',DB.customers.length);
+  animNum('m-products',DB.products.length);
+}
+
+function buildCharts(){
+  Object.values(charts).forEach(c=>c.destroy());charts={};
+  const tc='#8892a4',gc='rgba(99,120,180,0.06)';
+
+  // Revenue over time
+  const byMonth={};
+  DB.sales.forEach(s=>{
+    const m=s.sale_date.substring(0,7);
+    byMonth[m]=(byMonth[m]||0)+s.total;
+  });
+  const months=Object.keys(byMonth).sort();
+  const mlbl=months.map(m=>{const[y,mo]=m.split('-');return new Date(y,mo-1).toLocaleDateString('en-US',{month:'short',year:'2-digit'});});
+  charts.time=new Chart(document.getElementById('ch-time'),{
+    type:'line',
+    data:{labels:mlbl,datasets:[{label:'Revenue',data:months.map(m=>Math.round(byMonth[m]*100)/100),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',fill:true,tension:.4,borderWidth:2,pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:tc,font:{size:10}},grid:{color:gc}},y:{ticks:{color:tc,font:{size:10},callback:v=>usd(v)},grid:{color:gc}}},animation:{duration:900}}
+  });
+
+  // Revenue by customer (donut)
+  const byCust={};
+  DB.sales.forEach(s=>{
+    const c=DB.customers.find(x=>x.customer_id===s.customer_id);
+    const n=c?c.name:'Unknown';
+    byCust[n]=(byCust[n]||0)+s.total;
+  });
+  const pC=['#3b82f6','#22c55e','#a78bfa','#f59e0b','#ef4444','#06b6d4'];
+  charts.pie=new Chart(document.getElementById('ch-pie'),{
+    type:'doughnut',
+    data:{labels:Object.keys(byCust),datasets:[{data:Object.values(byCust).map(v=>Math.round(v*100)/100),backgroundColor:pC,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:tc,font:{size:10},padding:8,usePointStyle:true}}},animation:{duration:900}}
+  });
+
+  // Top products
+  const byProd={};
+  DB.sale_details.forEach(sd=>{
+    const p=DB.products.find(x=>x.product_id===sd.product_id);
+    const n=p?p.name:'Unknown';
+    byProd[n]=(byProd[n]||0)+sd.quantity;
+  });
+  const top=Object.entries(byProd).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  charts.top=new Chart(document.getElementById('ch-top'),{
+    type:'bar',
+    data:{labels:top.map(([n])=>n.length>14?n.slice(0,14)+'…':n),datasets:[{label:'Units',data:top.map(([,v])=>v),backgroundColor:'rgba(34,197,94,.5)',borderColor:'#22c55e',borderWidth:1,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:tc,font:{size:10}},grid:{color:gc}},y:{ticks:{color:tc,font:{size:10}},grid:{display:false}}},animation:{duration:900}}
+  });
+
+  // Inventory
+  const invC=DB.products.map(p=>p.stock<LOW?'rgba(239,68,68,.5)':'rgba(59,130,246,.5)');
+  const invB=DB.products.map(p=>p.stock<LOW?'#ef4444':'#3b82f6');
+  charts.inv=new Chart(document.getElementById('ch-inv'),{
+    type:'bar',
+    data:{labels:DB.products.map(p=>p.name.length>14?p.name.slice(0,14)+'…':p.name),datasets:[{label:'Stock',data:DB.products.map(p=>p.stock),backgroundColor:invC,borderColor:invB,borderWidth:1,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:tc,font:{size:10}},grid:{color:gc}},y:{ticks:{color:tc,font:{size:10}},grid:{display:false}}},animation:{duration:900}}
+  });
+}
+
+// ── Admin table cache ──
+let adm={sales:[],inv:[],sup:[],cust:[]};
+
+function buildAdminTables(){
+  adm.sales=DB.sales.slice().sort((a,b)=>new Date(b.sale_date)-new Date(a.sale_date)).map(s=>{
+    const c=DB.customers.find(x=>x.customer_id===s.customer_id);
+    return{id:s.sale_id,customer:c?c.name:'Unknown',total:s.total,date:s.sale_date};
+  });
+  adm.inv=DB.products.map(p=>{
+    const s=DB.suppliers.find(x=>x.supplier_id===p.supplier_id);
+    return{name:p.name,brand:p.brand,stock:p.stock,price:p.price,supplier:s?s.name:'N/A'};
+  });
+  adm.sup=DB.suppliers.map(s=>{
+    const cnt=DB.products.filter(p=>p.supplier_id===s.supplier_id).length;
+    return{id:s.supplier_id,name:s.name,email:s.email,phone:s.phone,products:cnt};
+  });
+  adm.cust=DB.customers.map(c=>{
+    const sc=DB.sales.filter(s=>s.customer_id===c.customer_id);
+    return{name:c.name,email:c.email,sales:sc.length,spent:sc.reduce((t,s)=>t+s.total,0)};
+  });
+  renderSales();renderInv();renderSup();renderCust();
+}
+
+function renderSales(rows){
+  rows=rows||adm.sales;
+  document.getElementById('adm-sales').innerHTML=
+    `<table class="tbl"><thead><tr><th>ID</th><th>Customer</th><th>Total</th><th>Date</th></tr></thead>
+    <tbody>${rows.map(s=>`<tr>
+      <td style="font-weight:600;">#${s.id}</td>
+      <td>${s.customer}</td>
+      <td style="color:var(--accent-g);font-weight:600;">${usd(s.total)}</td>
+      <td style="color:var(--fg2);">${new Date(s.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+function renderInv(rows){
+  rows=rows||adm.inv;
+  document.getElementById('adm-inv').innerHTML=
+    `<table class="tbl"><thead><tr><th>Product</th><th>Brand</th><th>Stock</th><th>Price</th></tr></thead>
+    <tbody>${rows.map(p=>`<tr>
+      <td style="font-weight:600;">${p.name}</td>
+      <td style="color:var(--fg2);">${p.brand}</td>
+      <td><span class="badge ${p.stock<LOW?'b-red':'b-green'}">${p.stock}</span></td>
+      <td>${usd(p.price)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+function renderSup(rows){
+  rows=rows||adm.sup;
+  document.getElementById('adm-sup').innerHTML=
+    `<table class="tbl"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Products</th></tr></thead>
+    <tbody>${rows.map(s=>`<tr>
+      <td style="font-weight:600;">#${s.id}</td>
+      <td style="font-weight:600;">${s.name}</td>
+      <td style="color:var(--fg2);">${s.email}</td>
+      <td><span class="badge b-purple">${s.products}</span></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+function renderCust(rows){
+  rows=rows||adm.cust;
+  document.getElementById('adm-cust').innerHTML=
+    `<table class="tbl"><thead><tr><th>Name</th><th>Email</th><th>Sales</th><th>Total Spent</th></tr></thead>
+    <tbody>${rows.map(c=>`<tr>
+      <td style="font-weight:600;">${c.name}</td>
+      <td style="color:var(--fg2);">${c.email}</td>
+      <td>${c.sales}</td>
+      <td style="color:var(--accent-g);font-weight:600;">${usd(c.spent)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function filter(type,q){
+  q=q.toLowerCase();
+  const filtered=adm[type].filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(q)));
+  if(type==='sales')renderSales(filtered);
+  else if(type==='inv')renderInv(filtered);
+  else if(type==='sup')renderSup(filtered);
+  else if(type==='cust')renderCust(filtered);
+}
+
+/* ══ CSV Export ══ */
+function exportCSV(){
+  const hdr=['sale_id','customer','total','date'];
+  const rows=adm.sales.map(s=>[s.id,s.customer,s.total.toFixed(2),new Date(s.date).toLocaleDateString('en-US')]);
+  let csv=hdr.join(',')+'\n'+rows.map(r=>r.map(v=>{const s=String(v);return s.includes(',')?`"${s}"`:s;}).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='sales_export.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  toast('Exported '+adm.sales.length+' records to CSV','s');
+}
+
+/* ══════════════════════════════════════════════════════════
+   KEYBOARD — SQL textarea handlers
+   · Enter             → execute query
+   · Shift + Enter     → insert newline (default behaviour)
+   Single listener on the textarea — no global conflicts.
+══════════════════════════════════════════════════════════ */
+(function attachSQLKeys(){
+  const ta = document.getElementById('sql-input');
+  if (!ta) return;
+  ta.addEventListener('keydown', function(e){
+    // Only handle Enter key
+    if (e.key !== 'Enter') return;
+    
+    // Shift+Enter → allow default (newline)
+    if (e.shiftKey) {
+      return; // Let default behavior happen
+    }
+    
+    // Plain Enter → execute SQL
+    e.preventDefault();
+    e.stopPropagation();
+    executeSQL();
+  });
+})();
+
+/* ══════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════ */
+window.addEventListener('load', ()=>{
+  renderFlow();
+  buildER();
+  renderSchema();
+  initStore();
+  refreshAdmin();
+  // Auto-select first step
+  setTimeout(()=>pickFlow(0), 400);
+});
 </script>
 </body>
 </html>
